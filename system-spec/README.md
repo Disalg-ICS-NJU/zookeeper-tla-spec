@@ -38,12 +38,12 @@ We have executed conformance checking after completing system specification. We 
 
 ```TLA+
 LeaderProcessRequest(i) == 
-        \* Enabling conditions
+        \** Enabling conditions
         /\ CheckTransactionNum 
         /\ IsON(i)
         /\ IsLeader(i)
         /\ zabState[i] = BROADCAST
-        \* Do something
+        \** Do something
         ... 
 ```
 
@@ -51,15 +51,15 @@ However, the client session creation is also regarded as a transaction in ZooKee
 
 ```TLA+
 LeaderProcessRequest(i) == 
-        \* Enabling conditions
+        \** Enabling conditions
         /\ CheckTransactionNum 
         /\ IsON(i)
         /\ IsLeader(i)
         /\ zabState[i] = BROADCAST
-        \* Add the following condition to ensure that quorums of servers are ready to process transactions.
+        \** The following condition is added to ensure that quorums of servers are ready to process transactions
         /\ LET inBroadcast == {s \in forwarding[i]: zabState[s] = BROADCAST}
            IN IsQuorum(inBroadcast)
-        \* Do something
+        \** Do something
         ...
 ```
 
