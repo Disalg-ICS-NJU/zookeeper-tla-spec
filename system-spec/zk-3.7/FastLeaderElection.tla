@@ -534,5 +534,6 @@ ShouldBeTriggered2 == ~\E Q \in Quorums: /\ \A i \in Q: /\ state[i] \in {FOLLOWI
                                          /\ \A i, j \in Q: currentVote[i].proposedLeader = currentVote[j].proposedLeader*)
 =============================================================================
 \* Modification History
+\* Last modified Sat Jan 14 15:19:45 CST 2023 by huangbinyu
 \* Last modified Sun Nov 14 15:18:32 CST 2021 by Dell
 \* Created Fri Jun 18 20:23:47 CST 2021 by Dell
