@@ -47,7 +47,7 @@ LeaderProcessRequest(i) ==
         ... 
 ```
 
-However, the client session creation is also regarded as a transaction in ZooKeeper, and should be committed by a quorum of servers. If not enough servers are ready to commit this transaction, the client session cannot be established successfully, and the following write request will not be processed. We find this divergence during conformance checking and improve our specification by adding extra enabling restrictions in the action *LeaderProcessRequest*. 
+However, the client session creation is also regarded as a transaction in ZooKeeper, and should be committed by a quorum of servers. If not enough servers are ready to commit this transaction, the client session cannot be established successfully, and the following write request will not be processed. We find this divergence during conformance checking and fix it by adding extra enabling restrictions in the action *LeaderProcessRequest*. 
 
 ```TLA+
 LeaderProcessRequest(i) == 
