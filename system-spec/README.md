@@ -28,7 +28,7 @@ We conduct conformance checking to deal with this problem.
 
 
 
-#### Conformance Checking
+### Conformance Checking
 
 With the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework, we can perform conformance checking in a low-cost way. 
 

@@ -16,11 +16,21 @@ We mainly focus on Zab’s recovery logic in its SYNC phase for the following re
 
 ## MET
 
+The [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework aims to combine the advantages of both model verification and testing.
 
 
 
+## Experiment
 
-## Triggering of Deep Bugs
+### Configuration
+
+### State space constraints
+
+### Results
+
+
+
+#### Triggering of Deep Bugs
 
 Following the Model checking-driven explorative testing (MET) framework, we have reproduced several old deep bugs and uncovered several new deep bugs in ZooKeeper. These subtle bugs will lead to critical property violations like data inconsistency or data loss. However, they are hard to be found, because the timing of the environment failures is quite subtle, and it requires more than ten steps to trigger them. Bugs triggered with our test specifications include: 
 
