@@ -20,19 +20,19 @@ If you have any question or find any problem of the specification, please contac
 
 ## Feedbacks of Community
 
-The ZooKeeper community show great interest in developing TLA+ specification for ZooKeeper and Zab.
-
-On Apache's issue tracking system, the request of [write a TLA+ specification to verify Zab protocol](https://issues.apache.org/jira/browse/ZOOKEEPER-3615) has been raised early in 2019. 
-
 We submit a [PR](https://github.com/apache/zookeeper/pull/1690) of providing formal specification and verification for Zab-pre1.0 and Zab-1.0 ( corresponding to protocol specification and system specification, respectively ).
 
-As the conversation on the [PR](https://github.com/apache/zookeeper/pull/1690) link desplays, the specification receives a lot of warm discussions and positive feedbacks from ZooKeeper's designers and developers. 
+This PR aims at fulfilling the request of [write a TLA+ specification to verify Zab protocol](https://issues.apache.org/jira/browse/ZOOKEEPER-3615) raised in 2019.
+
+As the conversation on the [PR](https://github.com/apache/zookeeper/pull/1690) link desplays, the specifications receive a lot of warm discussions and positive feedbacks from ZooKeeper's designers and developers. 
 
 Their advice like ”implement the minimum required”, ”keep things simpler” and ”reduce the state space” guided us to continuously adjust and improve the specification to an appropriate abstraction level. 
 
 Recently, we are told that our specification PR is expected to be reviewed and merged soon (https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
 
 
+
+## Conformance Checking
 
 
 
