@@ -1,7 +1,4 @@
 # Verification Statistics 
-> Our verification of Zab using model checking is in progress, and we have obtained part of data set.  
-> We show some of the statistics in this doc. 
-
 ##### Experiment configuration
 
 Our statistical results include: diameter of the system states that have been traversed, the number of states that have been traversed, the number of different states that have been discovered, and the time spent in the experiment.
@@ -14,12 +11,6 @@ The machine configuration used in the experiment is 2.40 GHz, 10-core CPU, 64GB 
 
 Due to the state space explosion in model checking and the complex actions of Zab protocol, as well as unlimited number of rounds and unlimited length of history, it is impossible to traverse all states.  
 We try to let models can tap into larger state space. See CONSTANT *Parameters* for details.
-
-
-
-##### Issues
-
-We have found several issues related to the ambiguous description of the Zab protocol. Details can be found at [issues](issues.md).
 
 
 
@@ -48,3 +39,6 @@ We have found several issues related to the ambiguous description of the Zab pro
 
 
 
+##### Issues
+
+Besides, we have found several issues related to the ambiguous description of the Zab protocol. Details can be found at [issues](issues.md).
