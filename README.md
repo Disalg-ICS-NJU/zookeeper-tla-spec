@@ -48,6 +48,6 @@ This project is organized as follows.
     * *[trace ](test-spec/zk_test_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
 
   * *[doc.md](test-spec/doc.md)* : introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
-  * *[experiment.md](test-spec/experiment.md)* : experiment design and results.
+  * *[experiment.md](test-spec/experiment.md)* : experiment design and results (of triggering bugs).
 
 
