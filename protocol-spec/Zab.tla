@@ -1,5 +1,5 @@
 -------------------------------- MODULE Zab ---------------------------------
-(* This is the formal specification for the Zab consensus algorithm,
+(* This is the protocol specification for the Zab consensus algorithm,
    in DSN'2011, which means Zab pre-1.0.*)
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
