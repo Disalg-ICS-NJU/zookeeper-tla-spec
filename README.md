@@ -20,7 +20,7 @@ Besides, to ensure the quality of these specifications, we also conduct model ch
 
 We submit a [pull request](https://github.com/apache/zookeeper/pull/1690) of providing formal specifications and verifications for Zab-pre1.0 and Zab-1.0 ( corresponding to protocol specification and system specification, respectively ), and received positive feedbacks from community developers.
 
-Recently, we are told that our specification PR is expected to be reviewed and merged soon (https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
+Recently, we are told that our specification PR is expected to be reviewed and merged [soon](https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
 
 
 
@@ -28,11 +28,26 @@ Recently, we are told that our specification PR is expected to be reviewed and m
 
 This project is organized as follows.
 
-* *protocol-spec*
-  * *Zab.tla & Zab.pdf* : TLA+ specification of Zab.
-  * *results* : results of verification.
-  * *doc-in-chinese* : document of the protocol specification and verification in Chinese. 
+* *[protocol-spec](protocol-spec)*
+  * *[Zab.tla](protocol-spec/Zab.tla)* : TLA+ specification of Zab.
+  * *[doc.md](protocol-spec/doc.md)*: introduction of Zab's protocol specification, as well as experience of specification and verification. 
+  * *[verification-statistics.md](protocol-spec/verification-statistics.md)* : statistics of verification.
+  * [*issues.md*](protocol-spec/issues.md) : issues found from  the protocol specification and the Zab informal description. 
+  * *[picture](protocol-spec/picture)*: pictures of buggy trace examples.
+* *[system-spec](system-spec)*
+  * *[zk-3.7](system-spec/zk-3.7)*
+    * *[ZkV3_7_0.tla](system-spec/zk-3.7/ZkV3_7_0.tla)*： TLA+ specification of Zab implementation of ZooKeeper-3.7.0.
+    * *[FastLeaderElection.tla](system-spec/zk-3.7/FastLeaderElection.tla)*:  TLA+ specification of the Fast Leader Election.
 
-* system-spec
-* test-spec
+  * *[doc.md](system-spec/doc.md)*: introduction of ZK's system specification, quality ensurance and feedbacks from community.
+  * *[conformance-checking.md](system-spec/conformance-checking.md)*: experience of conformance checking. 
+
+* *[test-spec](test-spec)*
+  * *[zk_test_v1](test-spec/zk_test_v1)*
+    * *[zk_test_v1.tla](test-spec/zk_test_v1/zk_test_v1.tla)*: TLA+ specification for testing Zab implementation of ZooKeeper-3.4.10.
+    * *[trace](test-spec/zk_test_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
+
+  * *[doc.md](test-spec/doc.md)*: introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
+  * *[experiment.md](test-spec/experiment.md)*: experiment design and results.
+
 
