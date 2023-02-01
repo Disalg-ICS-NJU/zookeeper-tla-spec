@@ -1,5 +1,5 @@
------------------------------ MODULE ZkV3_4_10 -----------------------------
-(* This is formal specification for Zab in apache/zookeeper with version 3.4.10. *)
+----------------------------- MODULE zk_test1 -----------------------------
+(* This is the test specification for Zab in apache/zookeeper with version 3.4.10. *)
 (* Reproduced bugs include zk-3911, zk-2845, etc. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
