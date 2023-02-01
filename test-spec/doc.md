@@ -18,5 +18,5 @@ We mainly focus on Zab’s recovery logic in its SYNC phase for the following re
 
 The [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework aims to combine the advantages of both model verification and testing. 
 
-Experiment details and results can be found [here](experiment.md).
+Experiment details are provided [here](experiment.md). Triggered bugs can be found at [deep-bugs.md](deep-bugs.md).
 

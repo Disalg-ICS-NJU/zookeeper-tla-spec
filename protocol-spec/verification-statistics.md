@@ -41,4 +41,4 @@ We try to let models can tap into larger state space. See CONSTANT *Parameters* 
 
 ##### Issues
 
-Besides, we have found several issues related to the ambiguous description of the Zab protocol. Details can be found at [issues](issues.md).
+Besides, we have found several issues related to the ambiguous description of the Zab protocol. Details can be found at [issues.md](issues.md).

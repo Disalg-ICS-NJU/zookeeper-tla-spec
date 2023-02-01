@@ -1,6 +1,6 @@
 # ZooKeeper's TLA+ Specification
 
-This project is about the TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](protocol-spec/issues.md) of Zab's informal description and some [deep bugs](test-spec/experiment.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
+This project is about the TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](protocol-spec/issues.md) of Zab's informal description and some [deep bugs](test-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
 
 The formal specifications are also provided to ZooKeeper community via a [pull request](https://github.com/apache/zookeeper/pull/1690) , which is under review and about to be merged [soon](https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
 
@@ -16,7 +16,7 @@ We first develop the ***protocol specification*** that describes the Zab protoco
 
 Considering that the ZooKeeper implementation optimizes a lot based on the Zab protocol, we then develop the ***system specification*** based on Zab's protocol specification and ZooKeeper's source code at a low cost. The system specification can serve as the super-doc of ZooKeeper (Zab-1.0) implementation.
 
-To guide the *Model checking-driven Explorative Testing (MET)*, we develop the ***test specification*** based on the system specification and the source code. The test specification help find several deep bugs (see *[experiment.md](test-spec/experiment.md)* ) in ZooKeeper implementaion (including the latest version ZK-3.8.0 at the time of writing). 
+To guide the *Model checking-driven Explorative Testing (MET)*, we develop the ***test specification*** based on the system specification and the source code. The test specification help find several deep bugs (see *[deep-bugs.md](test-spec/deep-bugs.md)*) in ZooKeeper implementaion (including the latest version ZK-3.8.0 at the time of writing). 
 
 Besides, to ensure the quality of these specifications, we also conduct model checking on them using the TLC model checkers, as well as conformance checking using our MET framework. 
 
@@ -54,5 +54,6 @@ This project is organized as follows.
   * *[trace ](test-spec/zk_test_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
 
 * *[doc.md](test-spec/doc.md)* : introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
-* *[experiment.md](test-spec/experiment.md)* : experiment design and results of triggering bugs.
+* *[experiment.md](test-spec/experiment.md)* : experiment design and results.
+* *[deep-bugs.md](test-spec/deep-bugs.md)* : list of triggered deep bugs.
 

@@ -35,4 +35,4 @@
 
 #### Triggering of Deep Bugs
 
-See the document of [deep-bugs.md](deep-bugs.md)
+Details can be found at [deep-bugs.md](deep-bugs.md)
