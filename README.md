@@ -36,7 +36,7 @@ This project is organized as follows.
 * *[doc.md](protocol-spec/doc.md)* : introduction of Zab's protocol specification, as well as experience of specification and verification. 
 * *[verification-statistics.md](protocol-spec/verification-statistics.md)* : statistics of verification.
 * [*issues.md*](protocol-spec/issues.md) : issues found from  the protocol specification and the Zab informal description. 
-* *[picture](protocol-spec/picture)* : pictures of buggy trace examples.
+* *[pic](protocol-spec/pic)* : pictures of buggy trace examples.
 
 #### *[system-spec](system-spec)*
 
