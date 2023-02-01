@@ -1,7 +1,5 @@
 ------------------------------ MODULE ZkV3_7_0 ------------------------------
-(* This is the formal specification for the Zab consensus algorithm,
-   which means Zookeeper Atomic Broadcast. The differences from 
-   ZabWithFLE is that we implement phase RECOVERY-SYNC.*)
+(* This is the system specification for Zab in apache/zookeeper with version 3.7.0 *)
 
 (* Reference:
    FLE: FastLeaderElection.java, Vote.java, QuorumPeer.java, e.g. in 
