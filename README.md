@@ -1,8 +1,8 @@
 # ZooKeeper's TLA+ Specification
 
-This project is about the TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](protocol-spec/issues.md) of Zab's informal description and some [deep bugs](test-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
+This project is about the development and evaluations of TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](protocol-spec/issues.md) of Zab's informal description and some [deep bugs](test-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
 
-The formal specifications are also provided to ZooKeeper community via a [pull request](https://github.com/apache/zookeeper/pull/1690) , which is under review and about to be merged [soon](https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
+The formal specifications are also provided to ZooKeeper community via a [pull request](https://github.com/apache/zookeeper/pull/1690) , which is under review and about to be [merged](https://lists.apache.org/thread/x622jkntmj81tg44n5lo4lvpx0b000d7). 
 
 
 
@@ -33,7 +33,7 @@ This project is organized as follows.
 #### *[protocol-spec](protocol-spec)*
 
 * *[Zab.tla](protocol-spec/Zab.tla)* : TLA+ specification of Zab.
-* *[doc.md](protocol-spec/doc.md)* : introduction of Zab's protocol specification, as well as experience of specification and verification. 
+* *[doc.md](protocol-spec/doc.md)* : introduction of Zab's protocol specification, as well as practices of specification and verification. 
 * *[verification-statistics.md](protocol-spec/verification-statistics.md)* : statistics of verification.
 * [*issues.md*](protocol-spec/issues.md) : issues found from  the protocol specification and the Zab informal description. 
 * *[pic](protocol-spec/pic)* : pictures of buggy trace examples.
