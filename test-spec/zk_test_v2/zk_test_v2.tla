@@ -1,6 +1,5 @@
------------------------------ MODULE zk_test_v1 -----------------------------
-(* This is the test specification for ZooKeeper in apache/zookeeper with version 3.4.10. *)
-(* Reproduced bugs include zk-3911, zk-2845, etc. *)
+----------------------------- MODULE zk_test_v2 -----------------------------
+(* This is the test specification for ZooKeeper in apache/zookeeper with version 3.7.0. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
@@ -247,7 +246,7 @@ RecorderSetFailure(pc) == CASE pc[1] = "Timeout"         -> RecorderIncTimeout @
                                                             ELSE RecorderIncTimeout @@ RecorderIncCrash 
                           []   OTHER                     -> RecorderGetTimeout @@ RecorderGetCrash
 
-UpdateRecorder(pc) == recorder' = RecorderIncHelper("step") @@ RecorderSetPartition(pc) @@ RecorderSetConsequentFailure(pc)
+UpdateRecorder(pc) == recorder' = RecorderSetPartition(pc) @@ RecorderSetConsequentFailure(pc)
                                   @@ RecorderSetNoExecute(pc)
                                   @@  RecorderSetFailure(pc)  @@ RecorderSetTransactionNum(pc)
                                   @@ RecorderSetMaxEpoch(pc)  @@ RecorderSetPc(pc) 
@@ -555,8 +554,7 @@ InitInvVars == /\ daInv  = [stateConsistent    |-> TRUE,
                              processConsistency|-> TRUE ]
 InitCommitVars == committedLog = << >>
 InitInitVars == doInit = FALSE 
-InitRecorder == recorder = [step           |-> 1,
-                            nTimeout       |-> 0,
+InitRecorder == recorder = [nTimeout       |-> 0,
                             nTransaction   |-> 0,
                             nPartition     |-> 0,
                             maxEpoch       |-> 0,
@@ -726,8 +724,7 @@ SwitchToFollowing(i) ==
 
 Shutdown(S, crashSet) ==
         /\ state'         = [s \in Server |-> IF s \in S THEN LOOKING ELSE state[s] ]
-        /\ lastProcessed' = [s \in Server |-> IF s \in crashSet
-                                                         THEN InitLastProcessed(s)
+        /\ lastProcessed' = [s \in Server |-> IF s \in S THEN InitLastProcessed(s)
                                                          ELSE lastProcessed[s] ]
         /\ zabState'      = [s \in Server |-> IF s \in S THEN ELECTION ELSE zabState[s] ]
         /\ leaderAddr'    = [s \in Server |-> IF s \in S THEN NullPoint ELSE leaderAddr[s] ]
@@ -737,12 +734,8 @@ FollowerShutdown(i, isCrash) ==
         /\ state'      = [state      EXCEPT ![i] = LOOKING]
         /\ zabState'   = [zabState   EXCEPT ![i] = ELECTION]
         /\ leaderAddr' = [leaderAddr EXCEPT ![i] = NullPoint]
-        \* since lastProcessed will be updated in nodestart,
-        \* there is no necessary to change lastProcessed here, just for align
-        /\ \/ /\ isCrash 
-              /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
-           \/ /\ ~isCrash
-              /\ UNCHANGED lastProcessed
+        \* in version 3.7.0, lastProcessed will be modified when turning to LOOKING
+        /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
 
 LeaderShutdown(i, crashSet) ==
         /\ LET cluster == {i} \union learners[i]
@@ -908,6 +901,7 @@ UpdateStateToPhaseSync(ld, fs) ==
            acceptedEpoch'  = [s \in Server |-> IF s \in S THEN finalTempMaxEpoch
                                                           ELSE acceptedEpoch[s] ]
         \* initialize leader
+        /\ currentEpoch'   = [currentEpoch EXCEPT ![ld] = acceptedEpoch'[ld]]
         /\ history'        = [history      EXCEPT ![ld] = InitHistory(ld) ]
         /\ learners'       = [learners     EXCEPT ![ld] = {ld} \union fs ]
         /\ connecting'     = [connecting   EXCEPT ![ld] = { [ sid       |-> ld,
@@ -947,8 +941,8 @@ ElectionAndDiscovery(i, S) ==
         /\ leaderOracle' = i
         /\ UpdateStateToPhaseSync(i, S\{i})
         \* Election and connection finished, then complete discovery
-        /\ UNCHANGED <<currentEpoch, lastCommitted, lastProcessed,
-                netVars, envVars, proposalMsgsLog, daInv>>
+        /\ UNCHANGED <<lastCommitted, lastProcessed,
+                       netVars, envVars, proposalMsgsLog, daInv>>
         /\ UpdateRecorder(<<"ElectionAndDiscovery", i, S\{i} >>)
         /\ UpdateAfterAction 
 
@@ -1561,25 +1555,26 @@ ACKInBatches(queue, packets) ==
 (* Update currentEpoch, and logRequest every packets in
    packetsNotCommitted and clear it. As syncProcessor will 
    be called in logRequest, we have to reply acks here. *)
-
-(* In version 3.4, learner just setCurrentEpoch and reply ACK,
-   without call logRequest in packetsNotCommitted. *)
 FollowerProcessNEWLEADER(i, j) ==
         /\ IsON(i)
         /\ IsFollower(i)
         /\ PendingNEWLEADER(i, j)
         /\ LET msg == rcvBuffer[j][i][1]
                infoOk == IsMyLeader(i, j)
+               packetsInSync == packetsSync[i].notCommitted
                m_ackld == [ mtype |-> ACKLD,
                             mzxid |-> msg.mzxid ]
+               ms_ack  == ACKInBatches( << >>, packetsInSync )
+               queue_toSend == <<m_ackld>> \o ms_ack \* send ACK-NEWLEADER first.
            IN /\ infoOk
               /\ currentEpoch' = [currentEpoch EXCEPT ![i] = acceptedEpoch[i] ]
-              /\ Reply(i, j, m_ackld)
-        /\ UNCHANGED <<state, zabState, acceptedEpoch, logVars, leaderVars, followerVars,
-                electionVars, envVars, verifyVars, daInv>>
+              /\ history'      = [history      EXCEPT ![i] = @ \o packetsInSync ]
+              /\ packetsSync'  = [packetsSync  EXCEPT ![i].notCommitted = << >> ]
+              /\ SendPackets(i, j, queue_toSend, TRUE)
+        /\ UNCHANGED <<state, zabState, acceptedEpoch, initialHistory, lastCommitted, lastProcessed,
+                leaderVars, leaderAddr, electionVars, envVars,verifyVars, daInv>>
         /\ UpdateRecorder(<<"FollowerProcessNEWLEADER", i, j>>)
         /\ UpdateAfterAction 
-
 
 \* quorumFormed in Leader
 QuorumFormed(i, set) == i \in set /\ IsQuorum(set)
@@ -1602,9 +1597,6 @@ LeaderTurnToBroadcast(i) ==
 
 (* Leader waits for receiving quorum of ACK whose lower bits of zxid is 0, and
    broadcasts UPTODATE. See waitForNewLeaderAck for details.  *)
-
-(* In version 3.4, leader processes ACK of NEWLEADER in processAck, and then
-   update lastCommitted to <epoch, 0> , lastProcessed to newest. *)
 LeaderProcessACKLD(i, j) ==
         /\ IsON(i)
         /\ IsLeader(i)
@@ -2115,6 +2107,6 @@ TypeOK ==
     /\ committedLog \in Seq(HistoryItem)
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 13 12:29:11 CST 2022 by ouyanglingzhi
-\* Last modified Mon Aug 01 13:30:52 CST 2022 by hby
-\* Created Fri Jul 29 19:19:49 CST 2022 by hby
+\* Last modified Thu Feb 02 15:24:46 CST 2023 by huangbinyu
+\* Last modified Sat Jun 04 13:43:44 CST 2022 by Dell
+\* Created Wed May 25 16:08:38 CST 2022 by Dell
