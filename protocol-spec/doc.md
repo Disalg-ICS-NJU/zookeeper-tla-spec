@@ -52,9 +52,10 @@ Here the meanings of these invariants are described in the following. Except for
 #### Assign additional TLC options
 We set number of worker threads as 10(if unavailable on your system, just decrease it).  
 We can choose checking mode from *Model-checking mode* and *simulation mode*.  
-	-	Model-checking mode: It is a traverse method like BFS. Diameter in results represent the maximum depth when traversing. All intermediate results will be saved as binary files locally and occupy a large space if running time is long.  
-	-	Simulation mode: Everytime TLC randomly chooses a path and run through it until reaching termination or reaching maximum length of the trace, and randomly chooses another path. Currently we set *Maximum length of the trace* as 100.  
-Here we mainly use simulation mode to discover if there exists deep bug, which is hard to be found in model-checking mode.
+
+-	Model-checking mode: It is a traverse method like BFS. Diameter in results represent the maximum depth when traversing. All intermediate results will be saved as binary files locally and occupy a large space if running time is long.  
+-	Simulation mode: Everytime TLC randomly chooses a path and run through it until reaching termination or reaching maximum length of the trace, and randomly chooses another path. Currently we set *Maximum length of the trace* as 100.  
+Here we mainly use simulation mode to discover if there exists deep bugs, which is hard to be found in model-checking mode.
 
 
 
@@ -62,17 +63,40 @@ Here we mainly use simulation mode to discover if there exists deep bug, which i
 
 You can find our [result](verification-statistics.md) of verification using TLC model checking.
 
+## Adjustment in protocol spec from paper
+>Because the pursuit of the paper is to describe the Zab protocol to others in a concise manner, which will lead to insufficient description of the protocol, there are missing or vague places in the paper. As a mathematical language, no ambiguity is allowed in the TLA+ specification, and this is why we need adjustment.
 
+Overall, we categorize the flaws of the original paper into two classes: abstraction and vagueness.
 
-## Abstraction in specification
->The Zab protocol in paper dose not focus on leader election, so we abstract the process of leader election in spec. Our spec can simulate non-Byzantion faults. In addition, what we pay attention to is consistency of system state, and we abstract or omit some parts in actual implementation, such as replying results to client, heartbeat transmission, and so on. These modules all do not affect consistency of Zab.
+### Abstraction
 
-### Abstraction to Election
-Since paper pay no attention to leader election, while as to let model run, election module can not be omitted. To simplify election, we have a global variable *leaderOracle*, that all servers can visit. And there are two actions let server complete election, *UpdateLeader* and *FollowLeader*. *UpdateLeader* is used to update leaderOracle. *FolLowLeader* is used to help one server find leader and follow it.  
+There is a missing part in the paper, in which the pseudocode uses the **Discovery** stage as the initial stage of each round, and omits the **Election** stage.  
 
-### Abstraction to communication medium
-Communication in Zab is based on TCP channels, so there is no packet loss, redundancy, or disorder in message delivery. We use module *Sequence* in TLA+ to simulate channel meeting the property of receiving messages in order. So there is a certain difference between our communication channel and end-to-end TCP channel.    
-We believe it can simulate message delay when a server does not perform the action of receiving messages. And it can simulate a process failure when a server does not perform any action.
+On the one hand, in spec, **Election** helps advance the state of the system, and is also related to the liveness and strong consistency of the system, so we cannot omit it. On the other hand, our focus is on Zab, so the **Election** module should be expressed with a small number of variables and actions to reduce the state space of the model.
 
-### Abstraction and omission to actions unrelated to system state
-What we care about is consistecy of the state in the system. We do not care about details like client request or the system's reply to client, or server applying transactions to replica. Therefore, we simplify the process of client requesting, and omit reply to client. We assume that each committed transaction will be delivered to replica immediately, so we can treat variable history[i][1..commitIndex] as the transaction sequence that server *i* delivers to the corresponding replica.
+We use one variable *leaderOracle* and two actions *UpdateLeader* and *FollowerLeader* to express the **election** module streamlined.
+
+### Vagueness
+
+We categorize vagueness in the paper into two classes: vagueness in variables and vagueness in actions.
+
+#### Vagueness in variables
+First, the character **Q** is used everywhere in the pseudocode to represent the set of Followers perceived by the Leader in the current term. We divide the set **Q** specifically into variables *learners*, *cepochRecv*, *ackeRecv* and *ackldRecv*. We use *cepochRecv* to let Leader broadcast *NEWEPOCH*, *ackeRecv* to let Leader broadcast *NEWLEADER* and *PROPOSE*, *ackldRecv* to let Leader broadcast *COMMIT-LD* and *COMMIT*. We will explain the reason why we use these sets when Leader broadcasts *PROPOSE* and *COMMIT* in the [issues](issues.md).
+
+Second, *zxid* in *COMMIT-LD* is omitted in hte paper. We will explain the value of the *zxid* in the [issues](issues.md).
+
+#### Vagueness in actions
+Totally, adjustment on vagueness in actions can be divided into two classes: Completing the missing description and Adjusting the protocol structure.
+
+-	For completing the missing description, we categorize four classes:
+
+1.	Complete the branch of action where after the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* still does not satisfy the quorum.
+2.	Complete the branch of action where before the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* has already satisfied the quorum.
+3.	Supplement the logical action that the Leader receives the request from the client, encapsulates the request as a log entry, and persists the log entry.
+4.	Supplement the logical action that the Leader tries to commit log entries based on confirmation information from followers.
+
+-	For adjusting the protocol structure, in order to improve the readability of the spec, we impose standardized and unified restrictions on the spec. That is, the division unit is to one node receiving and processing one message. Each action, except actions in election module and environment error module, makes a node receiving a certain message a trigger condition, and then produces a subsequent state change.
+
+See example when Leader processes message *CEPOCH* from one follower:
+
+![case_leader_process_cepoch](pic/case_leader_process_cepoch.png)
