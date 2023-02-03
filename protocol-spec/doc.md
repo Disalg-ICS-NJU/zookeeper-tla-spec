@@ -63,7 +63,7 @@ Here we mainly use simulation mode to discover if there exists deep bugs, which 
 
 You can find our [result](verification-statistics.md) of verification using TLC model checking.
 
-## Adjustment in protocol spec from paper
+## Adjustments in protocol spec from paper
 >Because the pursuit of the paper is to describe the Zab protocol to others in a concise manner, which will lead to insufficient description of the protocol, there are missing or vague places in the paper. As a mathematical language, no ambiguity is allowed in the TLA+ specification, and this is why we need adjustment.
 
 Overall, we categorize the flaws of the original paper into two classes: abstraction and vagueness.
@@ -88,14 +88,14 @@ Second, *zxid* in *COMMIT-LD* is omitted in hte paper. We will explain the value
 #### Vagueness in actions
 Totally, adjustment on vagueness in actions can be divided into two classes: Completing the missing description and Adjusting the protocol structure.
 
--	For completing the missing description, we categorize four classes:
+*	For completing the missing description, we categorize four classes:
 
-1.	Complete the branch of action where after the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* still does not satisfy the quorum.
-2.	Complete the branch of action where before the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* has already satisfied the quorum.
-3.	Supplement the logical action that the Leader receives the request from the client, encapsulates the request as a log entry, and persists the log entry.
-4.	Supplement the logical action that the Leader tries to commit log entries based on confirmation information from followers.
+	1.	Complete the branch of action where after the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* still does not satisfy the quorum.
+	2.	Complete the branch of action where before the Leader node processes the message *m* of type *t*, the receiving set of messages of type *t* has already satisfied the quorum.
+	3.	Supplement the logical action that the Leader receives the request from the client, encapsulates the request as a log entry, and persists the log entry.
+	4.	Supplement the logical action that the Leader tries to commit log entries based on confirmation information from followers.
 
--	For adjusting the protocol structure, in order to improve the readability of the spec, we impose standardized and unified restrictions on the spec. That is, the division unit is to one node receiving and processing one message. Each action, except actions in election module and environment error module, makes a node receiving a certain message a trigger condition, and then produces a subsequent state change.
+*	For adjusting the protocol structure, in order to improve the readability of the spec, we impose standardized and unified restrictions on the spec. That is, the division unit is to one node receiving and processing one message. Each action, except actions in election module and environment error module, makes a node receiving a certain message a trigger condition, and then produces a subsequent state change.
 
 See example when Leader processes message *CEPOCH* from one follower:
 

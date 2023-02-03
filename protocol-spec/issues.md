@@ -2,6 +2,9 @@
 
 >This document describes issues related to the ambiguous description of the Zab protocol. 
 
+## （Issue 1）Issue introduced by vague explanation of broadcast object set Q
+
+
 ### (Issue 1) Line: 377, Action: UpdateLeader, FollowLeader
 Since paper pay no attention to leader election, we use global variable *leaderOracle* to simplify election module. In action *UpdateLeader*, we let a server in *LOOKING* be the new leader, and update *leaderOracle*. In action *FollowLeader*, we let a server in *LOOKING* switches its state to *FOLLOWING* or *LEADING* according to *leaderOracle*. 
 
