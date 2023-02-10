@@ -713,10 +713,10 @@ NodeCrash(i) ==
                           \/ /\ ~IsQuorum(newCluster)
                              /\ LeaderShutdown(leader)
                              /\ UNCHANGED <<electing, connecting, ackldRecv>>
-                    \/ /\ ~connectedWithLeader \* In current spec this condition should not happen 
+                    \/ /\ ~connectedWithLeader
+                       /\ FollowerShutdown(i)
                        /\ CleanInputBuffer({i})
-                       /\ UNCHANGED <<varsL, zabState, connectInfo, learners,
-                                    forwarding, connecting, electing, ackldRecv>>
+                       /\ UNCHANGED <<learners, forwarding, connecting, electing, ackldRecv>>
            \/ /\ IsLeader(i)
               /\ LeaderShutdown(i)
               /\ UNCHANGED <<electing, connecting, ackldRecv>>
