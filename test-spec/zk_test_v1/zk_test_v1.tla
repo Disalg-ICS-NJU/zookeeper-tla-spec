@@ -177,13 +177,15 @@ RecorderIncCrash   == RecorderIncHelper("nCrash")
 RecorderGetCrash   == RecorderGetHelper("nCrash")
 
 RecorderSetTransactionNum(pc) == ("nTransaction" :> 
-                                IF pc[1] = "LeaderProcessRequest" THEN
+                                IF \/ pc[1] = "LeaderProcessRequest"
+                                   \/ pc[1] = "SetInitState" THEN
                                     LET s == CHOOSE i \in Server: 
                                         \A j \in Server: Len(history'[i]) >= Len(history'[j])                       
                                     IN Len(history'[s])
                                 ELSE recorder["nTransaction"])
 RecorderSetMaxEpoch(pc)       == ("maxEpoch" :> 
-                                IF pc[1] = "ElectionAndDiscovery" THEN
+                                IF \/ pc[1] = "ElectionAndDiscovery"
+                                   \/ pc[1] = "SetInitState" THEN
                                     LET s == CHOOSE i \in Server:
                                         \A j \in Server: acceptedEpoch'[i] >= acceptedEpoch'[j]
                                     IN acceptedEpoch'[s]
@@ -379,6 +381,12 @@ TxnEqualHelper(leaderLog, standardLog, cur, end) ==
         ELSE IF ~TxnEqual(leaderLog[cur], standardLog[cur]) THEN FALSE 
              ELSE TxnEqualHelper(leaderLog, standardLog, cur+1, end)
 
+RECURSIVE TxnNotEqualHelper(_,_,_,_)
+TxnNotEqualHelper(followerLog, standardLog, cur, end) ==
+        IF cur > end THEN TRUE
+        ELSE IF TxnEqual(followerLog[cur], standardLog[cur]) THEN FALSE
+             ELSE TxnNotEqualHelper(followerLog, standardLog, cur+1, end)
+
 CommittedLogMonotonicity ==
                  \/ leaderOracle' \notin Server
                  \/ /\ leaderOracle' \in Server
@@ -392,16 +400,43 @@ CommittedLogMonotonicity ==
                              /\ lead 
                              /\ bc
                               => /\ index >= Len(committedLog)
-                                 /\ TxnEqualHelper(history'[leader], committedLog, 1, Minimum({index, Len(committedLog)}))
-
+                                 /\ TxnEqualHelper(history'[leader], committedLog,
+                                                   1, Minimum({index, Len(committedLog)}))
 
 ProcessConsistency == \A i, j \in Server: 
                         /\ state'[i] = LEADING   /\ j \in learners'[i]
                         /\ state'[j] = FOLLOWING /\ leaderAddr'[j] = i
-                        /\ currentEpoch'[j] = acceptedEpoch'[j]
-                     => /\ Len(history'[i]) >= Len(history'[j]) \* namely j has received NEWLEADER
-                        /\ TxnEqualHelper(history'[i], history'[j], 1, Minimum({Len(history'[i]), Len(history'[j])}))
+                        /\ currentEpoch'[j] = acceptedEpoch'[j] \* namely j has received NEWLEADER
+                     => /\ Len(history'[i]) >= Len(history'[j])
+                        /\ TxnEqualHelper(history'[i], history'[j],
+                                          1, Minimum({Len(history'[i]), Len(history'[j])}))
 
+LeaderLogCompleteness == \/ leaderOracle' \notin Server
+                         \/ /\ leaderOracle' \in Server
+                            /\ LET leader == leaderOracle'
+                                   index  == lastCommitted'[leader].index
+                                   on     == status'[leader] = ONLINE
+                                   lead   == state'[leader] = LEADING
+                               IN \/ ~on \/ ~lead
+                                  \/ /\ on
+                                     /\ lead
+                                      => /\ index >= Len(committedLog)
+                                         /\ TxnEqualHelper(history'[leader], committedLog,
+                                                           1, Minimum({index, Len(committedLog)}))
+
+CommittedLogDurability == \/ recorder'.pc[1] /= "FollowerProcessSyncMessage"
+                          \/ /\ recorder'.pc[1] = "FollowerProcessSyncMessage"
+                             /\ LET node == recorder'.pc[2]
+                                    oldLen == Len(history[node])
+                                    newLen == Len(history'[node])
+                                IN
+                                \/ oldLen <= newLen
+                                \/ /\ oldLen > newLen \* follower's log is truncated
+                                   /\ \/ Len(committedLog) <= newLen
+                                      \/ /\ Len(committedLog) > newLen
+                                         /\ TxnNotEqualHelper(history[node], committedLog,
+                                                              newLen + 1,
+                                                              Minimum({oldLen, Len(committedLog)}))
 
 (*
 ProcessConsistency == \A s \in Server: state'[s] = LOOKING 
@@ -418,7 +453,9 @@ UpdateAfterAction == /\ aaInv' = [    leadership        |-> Leadership1 /\ Leade
                                       totalOrder        |-> TotalOrder,
                                       primaryOrder      |-> LocalPrimaryOrder /\ GlobalPrimaryOrder,
                                       monotonicRead     |-> CommittedLogMonotonicity,
-                                      processConsistency|-> ProcessConsistency  ]
+                                      processConsistency|-> ProcessConsistency,
+                                      leaderLogCompleteness  |-> LeaderLogCompleteness,
+                                      committedLogDurability |-> CommittedLogDurability  ]
                      /\ committedLog' = LET leader == leaderOracle'
                                         IN IF leader \notin Server THEN committedLog
                                            ELSE LET index  == lastCommitted'[leader].index
@@ -552,7 +589,9 @@ InitInvVars == /\ daInv  = [stateConsistent    |-> TRUE,
                              totalOrder        |-> TRUE,
                              primaryOrder      |-> TRUE,
                              monotonicRead     |-> TRUE,
-                             processConsistency|-> TRUE ]
+                             processConsistency|-> TRUE,
+                             leaderLogCompleteness  |-> TRUE,
+                             committedLogDurability |-> TRUE ]
 InitCommitVars == committedLog = << >>
 InitInitVars == doInit = FALSE 
 InitRecorder == recorder = [step           |-> 1,
@@ -2076,7 +2115,8 @@ DaInvSet == {"stateConsistent", "proposalConsistent",
 
 AaInvSet == {"leadership", "prefixConsistency", "integrity",      
               "agreement", "totalOrder", "primaryOrder", "monotonicRead",
-              "processConsistency" }
+              "processConsistency", "leaderLogCompleteness",
+              "committedLogDurability" }
 
 Connecting == [ sid : Server,
                 connected: BOOLEAN ]
