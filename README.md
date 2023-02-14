@@ -50,12 +50,14 @@ This project is organized as follows.
 #### *[test-spec](test-spec)*
 
 * *[zk_test_v1](test-spec/zk_test_v1)*
-  * *[zk_test_v1.tla](test-spec/zk_test_v1/zk_test_v1.tla)* : TLA+ specification for testing Zab implementation of ZooKeeper-3.4.10.
+  * *[zk_test_v1.tla](test-spec/zk_test_v1/zk_test_v1.tla)* : TLA+ specification v1 for testing Zab implementation of ZooKeeper-3.4.10.
   * *[trace ](test-spec/zk_test_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
 
 * *[zk_test_v2](test-spec/zk_test_v2)*
-  * *[zk_test_v2.tla](test-spec/zk_test_v2/zk_test_v2.tla)* : TLA+ specification for testing Zab implementation of ZooKeeper-3.7.0.
+  * *[zk_test_v2.tla](test-spec/zk_test_v2/zk_test_v2.tla)* : TLA+ specification v2 for testing Zab implementation of ZooKeeper-3.7+.
 
+* *[zk_test_v3](test-spec/zk_test_v3)*
+  * *[zk_test_v3.tla](test-spec/zk_test_v3/zk_test_v3.tla)* : TLA+ specification v3 for testing Zab implementation of ZooKeeper-3.7+.
 * *[doc.md](test-spec/doc.md)* : introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
 * *[experiment.md](test-spec/experiment.md)* : experiment design and results.
 * *[deep-bugs.md](test-spec/deep-bugs.md)* : list of triggered deep bugs.
