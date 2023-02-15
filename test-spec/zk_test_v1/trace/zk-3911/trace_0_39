@@ -1,4 +1,3 @@
----------------- MODULE /usr/src/Project/output/model_simulation_2022-08-13_04-31-04_1/trace_0_39 -----------------
 STATE_1 == 
 /\ forwarding = (s0 :> {} @@ s1 :> {} @@ s2 :> {})
 /\ history = (s0 :> <<>> @@ s1 :> <<>> @@ s2 :> <<>>)
