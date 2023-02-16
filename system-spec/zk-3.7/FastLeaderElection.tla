@@ -429,37 +429,34 @@ HandleNotmsg(i) ==
         /\ recvQueue' = [recvQueue EXCEPT ![i] = Tail(recvQueue[i])]
         /\ UNCHANGED <<currentEpoch, lastProcessed>>
 
-\* On the premise that ReceiveVotes.HasQuorums = TRUE, corresponding to logic in line 1050-1055 in LFE.java.
+\* On the premise that ReceiveVotes.HasQuorums = TRUE, corresponding to logic in LFE.java.
 WaitNewNotmsg(i) ==
         /\ state[i] = LOOKING
         /\ waitNotmsg[i] = TRUE
-        /\ recvQueue[i] /= << >>
-        /\ recvQueue[i][1].mtype = NOTIFICATION
-        /\ LET n      == recvQueue[i][1]
-               peerOk == TotalOrderPredicate(n.mvote, currentVote[i])
-               delQ   == Tail(recvQueue[i])
-           IN \/ /\ peerOk
-                 /\ waitNotmsg' = [waitNotmsg EXCEPT ![i] = FALSE]
-                 /\ recvQueue'  = [recvQueue  EXCEPT ![i] = Append(delQ, n)]
-              \/ /\ ~peerOk
-                 /\ recvQueue' = [recvQueue EXCEPT ![i] = delQ]
-                 /\ UNCHANGED waitNotmsg
-        /\ UNCHANGED <<serverVarsL, currentVote, logicalClock, receiveVotes, outOfElection, leaderVarsL, electionMsgs>>
-
-\* On the premise that ReceiveVotes.HasQuorums = TRUE, corresponding to logic in line 1061-1066 in LFE.java.
-WaitNewNotmsgEnd(i) ==
-        /\ state[i] = LOOKING
-        /\ waitNotmsg[i] = TRUE
-        /\ \/ recvQueue[i] = << >>
-           \/ /\ recvQueue[i] /= << >>
-              /\ recvQueue[i][1].mtype = NONE
-        /\ state'          = [state          EXCEPT ![i] = IF currentVote[i].proposedLeader = i THEN LEADING
-                                                                                                ELSE FOLLOWING]
-        /\ leadingVoteSet' = [leadingVoteSet EXCEPT ![i] = IF currentVote[i].proposedLeader = i THEN VoteSet(i, i, receiveVotes[i], currentVote[i], logicalClock[i])
-                                                                                                ELSE @]
-        /\ history'        = [history        EXCEPT ![i] = InitHistory(i)]
-        /\ UNCHANGED <<currentEpoch, lastProcessed, electionVarsL, electionMsgs>>
-
+        /\ \/ /\ recvQueue[i] /= << >>
+              /\ recvQueue[i][1].mtype = NOTIFICATION
+              /\ LET n == recvQueue[i][1]
+                     peerOk == TotalOrderPredicate(n.mvote, currentVote[i])
+                 IN \/ /\ peerOk
+                       /\ waitNotmsg' = [waitNotmsg EXCEPT ![i] = FALSE]
+                       /\ recvQueue'  = [recvQueue  EXCEPT ![i] = Append(Tail(@), n)]
+                    \/ /\ ~peerOk
+                       /\ recvQueue' = [recvQueue EXCEPT ![i] = Tail(@)]
+                       /\ UNCHANGED waitNotmsg
+              /\ UNCHANGED <<serverVarsL, currentVote, logicalClock, receiveVotes, outOfElection, 
+                             leaderVarsL, electionMsgs>>
+           \/ /\ \/ recvQueue[i] = << >>
+                 \/ /\ recvQueue[i] /= << >>
+                    /\ recvQueue[i][1].mtype = NONE
+              /\ state' = [state EXCEPT ![i] = IF currentVote[i].proposedLeader = i THEN LEADING
+                                               ELSE FOLLOWING ]
+              /\ leadingVoteSet' = [leadingVoteSet EXCEPT ![i] = 
+                                                           IF currentVote[i].proposedLeader = i 
+                                                           THEN VoteSet(i, i, receiveVotes[i], currentVote[i],
+                                                                        logicalClock[i])
+                                                           ELSE @]
+              /\ history' = [history EXCEPT ![i] = InitHistory(i)]
+              /\ UNCHANGED <<currentEpoch, lastProcessed, electionVarsL, electionMsgs>>
 -----------------------------------------------------------------------------
 (*Test - simulate modifying currentEpoch and lastProcessed.
   We want to reach violations to achieve some traces and see whether the whole state of system is advancing.
@@ -510,7 +507,6 @@ NextL ==
         \/ \E i \in Server:     NotmsgTimeout(i)
         \/ \E i \in Server:     HandleNotmsg(i)
         \/ \E i \in Server:     WaitNewNotmsg(i)
-        \/ \E i \in Server:     WaitNewNotmsgEnd(i)
        
         \/ \E i \in Server:     LeaderAdvanceEpoch(i)
         \/ \E i, j \in Server:  FollowerUpdateEpoch(i, j)
