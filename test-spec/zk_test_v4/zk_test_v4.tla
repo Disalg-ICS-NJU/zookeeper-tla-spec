@@ -1496,7 +1496,7 @@ FollowerCommitProcessorCommit(i) ==
         /\ LET toBeCommitted == committedRequests[i][1]
                completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
                commitIndex == ZxidToIndex(completeHis, toBeCommitted)
-               hasSaved == /\ commitIndex = lastCommitted[i].index + 1
+               hasSaved == /\ commitIndex > 0
                            /\ commitIndex <= Len(history[i])
            IN
            /\ hasSaved
