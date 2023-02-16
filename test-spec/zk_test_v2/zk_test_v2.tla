@@ -410,10 +410,17 @@ ProcessConsistency == \A i, j \in Server:
                         /\ TxnEqualHelper(history'[i], history'[j],
                                           1, Minimum({Len(history'[i]), Len(history'[j])}))
 
+LeaderLastCommitted(i) == IF zabState'[i] = BROADCAST THEN lastCommitted'[i]
+                          ELSE LET commitIndex == Len(initialHistory'[i])
+                               IN IF commitIndex = 0 THEN [ index |-> 0,
+                                                            zxid  |-> <<0, 0>> ]
+                                  ELSE [ index |-> commitIndex,
+                                         zxid  |-> history'[i][commitIndex].zxid ]
+
 LeaderLogCompleteness == \/ leaderOracle' \notin Server
                          \/ /\ leaderOracle' \in Server
                             /\ LET leader == leaderOracle'
-                                   index  == lastCommitted'[leader].index
+                                   index  == LeaderLastCommitted(leader).index
                                    on     == status'[leader] = ONLINE
                                    lead   == state'[leader] = LEADING
                                IN \/ ~on \/ ~lead
