@@ -179,13 +179,15 @@ RecorderIncCrash   == RecorderIncHelper("nCrash")
 RecorderGetCrash   == RecorderGetHelper("nCrash")
 
 RecorderSetTransactionNum(pc) == ("nTransaction" :> 
-                                IF pc[1] = "LeaderProcessRequest" THEN
+                                IF \/ pc[1] = "LeaderProcessRequest"
+                                   \/ pc[1] = "SetInitState" THEN
                                     LET s == CHOOSE i \in Server: 
                                         \A j \in Server: Len(history'[i]) >= Len(history'[j])                       
                                     IN Len(history'[s])
                                 ELSE recorder["nTransaction"])
 RecorderSetMaxEpoch(pc)       == ("maxEpoch" :> 
-                                IF pc[1] = "ElectionAndDiscovery" THEN
+                                IF \/ pc[1] = "ElectionAndDiscovery"
+                                   \/ pc[1] = "SetInitState" THEN
                                     LET s == CHOOSE i \in Server:
                                         \A j \in Server: acceptedEpoch'[i] >= acceptedEpoch'[j]
                                     IN acceptedEpoch'[s]
@@ -381,6 +383,12 @@ TxnEqualHelper(leaderLog, standardLog, cur, end) ==
         ELSE IF ~TxnEqual(leaderLog[cur], standardLog[cur]) THEN FALSE 
              ELSE TxnEqualHelper(leaderLog, standardLog, cur+1, end)
 
+RECURSIVE TxnNotEqualHelper(_,_,_,_)
+TxnNotEqualHelper(followerLog, standardLog, cur, end) ==
+        IF cur > end THEN TRUE
+        ELSE IF TxnEqual(followerLog[cur], standardLog[cur]) THEN FALSE
+             ELSE TxnNotEqualHelper(followerLog, standardLog, cur+1, end)
+
 CommittedLogMonotonicity ==
                  \/ leaderOracle' \notin Server
                  \/ /\ leaderOracle' \in Server
@@ -400,10 +408,56 @@ CommittedLogMonotonicity ==
 ProcessConsistency == \A i, j \in Server: 
                         /\ state'[i] = LEADING   /\ j \in learners'[i]
                         /\ state'[j] = FOLLOWING /\ leaderAddr'[j] = i
-                        /\ currentEpoch'[j] = acceptedEpoch'[j]
-                     => /\ Len(history'[i]) >= Len(history'[j]) \* namely j has received NEWLEADER
+                        /\ currentEpoch'[j] = acceptedEpoch'[j] \* namely j has received NEWLEADER
+                     => /\ Len(history'[i]) >= Len(history'[j]) 
                         /\ TxnEqualHelper(history'[i], history'[j], 1, Minimum({Len(history'[i]), Len(history'[j])}))
 
+\* LeaderLogCompleteness == \/ leaderOracle' \notin Server
+\*                          \/ /\ leaderOracle' \in Server
+\*                             /\ LET leader == leaderOracle'
+\*                                    index  == lastCommitted'[leader].index
+\*                                    on     == status'[leader] = ONLINE
+\*                                    lead   == state'[leader] = LEADING
+\*                                IN \/ ~on \/ ~lead
+\*                                   \/ /\ on
+\*                                      /\ lead
+\*                                       => /\ index >= Len(committedLog)
+\*                                          /\ TxnEqualHelper(history'[leader], committedLog,
+\*                                                            1, Minimum({index, Len(committedLog)}))
+
+LeaderLastCommitted(i) == IF zabState'[i] = BROADCAST THEN lastCommitted'[i]
+                          ELSE LET commitIndex == Len(initialHistory'[i])
+                               IN IF commitIndex = 0 THEN [ index |-> 0,
+                                                            zxid  |-> <<0, 0>> ]
+                                  ELSE [ index |-> commitIndex,
+                                         zxid  |-> history'[i][commitIndex].zxid ]
+
+LeaderLogCompleteness == \/ leaderOracle' \notin Server
+                         \/ /\ leaderOracle' \in Server
+                            /\ LET leader == leaderOracle'
+                                   index  == LeaderLastCommitted(leader).index
+                                   on     == status'[leader] = ONLINE
+                                   lead   == state'[leader] = LEADING
+                               IN \/ ~on \/ ~lead
+                                  \/ /\ on
+                                     /\ lead
+                                      => /\ index >= Len(committedLog)
+                                         /\ TxnEqualHelper(history'[leader], committedLog,
+                                                           1, Minimum({index, Len(committedLog)}))
+
+CommittedLogDurability == \/ recorder'.pc[1] /= "FollowerProcessSyncMessage"
+                          \/ /\ recorder'.pc[1] = "FollowerProcessSyncMessage"
+                             /\ LET node == recorder'.pc[2]
+                                    oldLen == Len(history[node])
+                                    newLen == Len(history'[node])
+                                IN
+                                \/ oldLen <= newLen
+                                \/ /\ oldLen > newLen \* follower's log is truncated
+                                   /\ \/ Len(committedLog) <= newLen
+                                      \/ /\ Len(committedLog) > newLen
+                                         /\ TxnNotEqualHelper(history[node], committedLog,
+                                                              newLen + 1,
+                                                              Minimum({oldLen, Len(committedLog)}))
 
 (*
 ProcessConsistency == \A s \in Server: state'[s] = LOOKING 
@@ -420,7 +474,9 @@ UpdateAfterAction == /\ aaInv' = [    leadership        |-> Leadership1 /\ Leade
                                       totalOrder        |-> TotalOrder,
                                       primaryOrder      |-> LocalPrimaryOrder /\ GlobalPrimaryOrder,
                                       monotonicRead     |-> CommittedLogMonotonicity,
-                                      processConsistency|-> ProcessConsistency  ]
+                                      processConsistency|-> ProcessConsistency,
+                                      leaderLogCompleteness  |-> LeaderLogCompleteness,
+                                      committedLogDurability |-> CommittedLogDurability  ]
                      /\ committedLog' = LET leader == leaderOracle'
                                         IN IF leader \notin Server THEN committedLog
                                            ELSE LET index  == lastCommitted'[leader].index
@@ -554,7 +610,9 @@ InitInvVars == /\ daInv  = [stateConsistent    |-> TRUE,
                              totalOrder        |-> TRUE,
                              primaryOrder      |-> TRUE,
                              monotonicRead     |-> TRUE,
-                             processConsistency|-> TRUE ]
+                             processConsistency|-> TRUE,
+                             leaderLogCompleteness  |-> TRUE,
+                             committedLogDurability |-> TRUE ]
 InitCommitVars == committedLog = << >>
 InitInitVars == doInit = FALSE 
 InitRecorder == recorder = [nTimeout       |-> 0,
@@ -732,13 +790,17 @@ Shutdown(S, crashSet) ==
         /\ zabState'      = [s \in Server |-> IF s \in S THEN ELECTION ELSE zabState[s] ]
         /\ leaderAddr'    = [s \in Server |-> IF s \in S THEN NullPoint ELSE leaderAddr[s] ]
         /\ CleanInputBuffer(S)
-
+        /\ packetsSync' = [s \in Server |-> IF s \in S THEN [ notCommitted |-> << >>,
+                                                              committed |-> << >> ]
+                                                       ELSE packetsSync[s] ]
 FollowerShutdown(i, isCrash) ==
         /\ state'      = [state      EXCEPT ![i] = LOOKING]
         /\ zabState'   = [zabState   EXCEPT ![i] = ELECTION]
         /\ leaderAddr' = [leaderAddr EXCEPT ![i] = NullPoint]
-        \* in version 3.7.0, lastProcessed will be modified when turning to LOOKING
+        \* in version 3.7+, lastProcessed will be modified when turning to LOOKING
         /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
+        /\ packetsSync' = [packetsSync EXCEPT ![i].notCommitted = << >>, 
+                                              ![i].committed = << >>]
 
 LeaderShutdown(i, crashSet) ==
         /\ LET cluster == {i} \union learners[i]
@@ -820,10 +882,11 @@ PartitionStart(i, j) ==
            \/ /\ IsLooking(i) 
               /\ IsLooking(j)
               /\ IdComparePredicate(i, j) \* to compress state space
-              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars, leaderAddr, netVars>>
+              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars,
+                             packetsSync, leaderAddr, netVars>>
         /\ partition' = [partition EXCEPT ![i][j] = TRUE, ![j][i] = TRUE ]
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, lastCommitted, tempMaxEpoch,
-                packetsSync, electionVars, status, verifyVars, daInv>>
+                        electionVars, status, verifyVars, daInv>>
         /\ UpdateRecorder(<<"PartitionStart", i, j>>)
         /\ UpdateAfterAction 
 
@@ -846,7 +909,7 @@ NodeCrash(i) ==
         /\ status' = [status EXCEPT ![i] = OFFLINE ]
         /\ \/ /\ IsLooking(i)
               /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars,
-                leaderAddr, netVars>>
+                             packetsSync, leaderAddr, netVars>>
            \/ /\ IsFollower(i)
               /\ LET connectedWithLeader == HasLeader(i)
                  IN \/ /\ connectedWithLeader
@@ -863,12 +926,12 @@ NodeCrash(i) ==
                     \/ /\ ~connectedWithLeader \* In current spec this condition should not happen 
                        /\ CleanInputBuffer({i})
                        /\ UNCHANGED <<state, zabState, lastProcessed, connecting, 
-                            noDisVars, leaderAddr>>
+                                        packetsSync, noDisVars, leaderAddr>>
            \/ /\ IsLeader(i)
               /\ LeaderShutdown(i, {i})
               /\ UNCHANGED <<connecting, electing, ackldRecv>>
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, tempMaxEpoch,
-                packetsSync, electionVars, partition, verifyVars, daInv, lastCommitted>>
+                electionVars, partition, verifyVars, daInv, lastCommitted>>
         /\ UpdateRecorder(<<"NodeCrash", i>>)
         /\ UpdateAfterAction 
 
@@ -2088,7 +2151,8 @@ DaInvSet == {"stateConsistent", "proposalConsistent",
 
 AaInvSet == {"leadership", "prefixConsistency", "integrity",      
               "agreement", "totalOrder", "primaryOrder", "monotonicRead",
-              "processConsistency" }
+              "processConsistency", "leaderLogCompleteness",
+              "committedLogDurability" }
 
 Connecting == [ sid : Server,
                 connected: BOOLEAN ]
