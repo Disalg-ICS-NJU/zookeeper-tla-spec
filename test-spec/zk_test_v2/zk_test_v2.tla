@@ -768,13 +768,18 @@ Shutdown(S, crashSet) ==
         /\ zabState'      = [s \in Server |-> IF s \in S THEN ELECTION ELSE zabState[s] ]
         /\ leaderAddr'    = [s \in Server |-> IF s \in S THEN NullPoint ELSE leaderAddr[s] ]
         /\ CleanInputBuffer(S)
+        /\ packetsSync' = [s \in Server |-> IF s \in S THEN [ notCommitted |-> << >>,
+                                                              committed |-> << >> ]
+                                                       ELSE packetsSync[s] ]
 
 FollowerShutdown(i, isCrash) ==
         /\ state'      = [state      EXCEPT ![i] = LOOKING]
         /\ zabState'   = [zabState   EXCEPT ![i] = ELECTION]
         /\ leaderAddr' = [leaderAddr EXCEPT ![i] = NullPoint]
-        \* in version 3.7.0, lastProcessed will be modified when turning to LOOKING
+        \* in version 3.7+, lastProcessed will be modified when turning to LOOKING
         /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
+        /\ packetsSync' = [packetsSync EXCEPT ![i].notCommitted = << >>, 
+                                              ![i].committed = << >>]
 
 LeaderShutdown(i, crashSet) ==
         /\ LET cluster == {i} \union learners[i]
@@ -856,10 +861,11 @@ PartitionStart(i, j) ==
            \/ /\ IsLooking(i) 
               /\ IsLooking(j)
               /\ IdComparePredicate(i, j) \* to compress state space
-              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars, leaderAddr, netVars>>
+              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars,
+                             packetsSync, leaderAddr, netVars>>
         /\ partition' = [partition EXCEPT ![i][j] = TRUE, ![j][i] = TRUE ]
-        /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, lastCommitted, tempMaxEpoch,
-                packetsSync, electionVars, status, verifyVars, daInv>>
+        /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, lastCommitted,
+                       tempMaxEpoch, electionVars, status, verifyVars, daInv>>
         /\ UpdateRecorder(<<"PartitionStart", i, j>>)
         /\ UpdateAfterAction 
 
@@ -882,7 +888,7 @@ NodeCrash(i) ==
         /\ status' = [status EXCEPT ![i] = OFFLINE ]
         /\ \/ /\ IsLooking(i)
               /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars,
-                leaderAddr, netVars>>
+                             packetsSync, leaderAddr, netVars>>
            \/ /\ IsFollower(i)
               /\ LET connectedWithLeader == HasLeader(i)
                  IN \/ /\ connectedWithLeader
@@ -899,12 +905,12 @@ NodeCrash(i) ==
                     \/ /\ ~connectedWithLeader \* In current spec this condition should not happen 
                        /\ CleanInputBuffer({i})
                        /\ UNCHANGED <<state, zabState, lastProcessed, connecting, 
-                            noDisVars, leaderAddr>>
+                                      packetsSync, noDisVars, leaderAddr>>
            \/ /\ IsLeader(i)
               /\ LeaderShutdown(i, {i})
               /\ UNCHANGED <<connecting, electing, ackldRecv>>
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, tempMaxEpoch,
-                packetsSync, electionVars, partition, verifyVars, daInv, lastCommitted>>
+                       electionVars, partition, verifyVars, daInv, lastCommitted>>
         /\ UpdateRecorder(<<"NodeCrash", i>>)
         /\ UpdateAfterAction 
 
