@@ -552,20 +552,10 @@ FLEHandleNotmsg(i) ==
         /\ UpdateRecorder(<<"FLEHandleNotmsg", i>>)
 
 \* On the premise that ReceiveVotes.HasQuorums = TRUE, 
-\* corresponding to logic in line 1050-1055 in FastLeaderElection.
+\* corresponding to logic in FastLeaderElection.
 FLEWaitNewNotmsg(i) ==
         /\ IsON(i)
         /\ WaitNewNotmsg(i)
-        /\ UNCHANGED <<zabState, acceptedEpoch, lastCommitted, learners, connecting, 
-                       electing, ackldRecv, forwarding, tempMaxEpoch, initialHistory, 
-                       lastSnapshot, followerVars, verifyVars, envVars, msgs>>
-        /\ UpdateRecorder(<<"FLEWaitNewNotmsg", i>>)
-
-\* On the premise that ReceiveVotes.HasQuorums = TRUE, 
-\* corresponding to logic in line 1061-1066 in FastLeaderElection.
-FLEWaitNewNotmsgEnd(i) ==
-        /\ IsON(i)
-        /\ WaitNewNotmsgEnd(i)
         /\ LET newState == state'[i]
            IN
            \/ /\ newState = LEADING
@@ -582,7 +572,7 @@ FLEWaitNewNotmsgEnd(i) ==
                              forwarding, tempMaxEpoch, initialHistory, packetsSync>>
         /\ UNCHANGED <<lastCommitted, lastSnapshot, acceptedEpoch,
                        connectInfo, verifyVars, envVars, msgs>>
-        /\ UpdateRecorder(<<"FLEWaitNewNotmsgEnd", i>>)          
+        /\ UpdateRecorder(<<"FLEWaitNewNotmsg", i>>)
 -----------------------------------------------------------------------------
 InitialVotes == [ vote    |-> InitialVote,
                   round   |-> 0,
@@ -1906,8 +1896,7 @@ Next ==
             \/ \E i \in Server:    FLENotmsgTimeout(i)
             \/ \E i \in Server:    FLEHandleNotmsg(i)
             \/ \E i \in Server:    FLEWaitNewNotmsg(i)
-            \/ \E i \in Server:    FLEWaitNewNotmsgEnd(i)
-        (* situation errors like failure, network delay *)
+        (* situation errors like failure, network partition *)
             \/ \E i, j \in Server: PartitionStart(i, j)
             \/ \E i, j \in Server: PartitionRecover(i, j)
             \/ \E i \in Server:    NodeCrash(i)
@@ -1927,7 +1916,7 @@ Next ==
         (* Zab module - Broadcast part *)
             \/ \E i \in Server:    LeaderProcessRequest(i)
             \/ \E i, j \in Server: FollowerProcessPROPOSAL(i, j)
-            \/ \E i, j \in Server: LeaderProcessACK(i, j) \* Sync + Broadcast
+            \/ \E i, j \in Server: LeaderProcessACK(i, j)
             \/ \E i, j \in Server: FollowerProcessCOMMIT(i, j)
         (* An action used to judge whether there are redundant messages in network *)
             \/ \E i \in Server:    FilterNonexistentMessage(i)
@@ -1936,7 +1925,7 @@ Spec == Init /\ [][Next]_vars
 -----------------------------------------------------------------------------
 \* Define safety properties of Zab 1.0 protocol.
 
-ShouldNotBeTriggered == \A p \in DOMAIN violatedInvariants: violatedInvariants[p] = FALSE
+CheckDuringAction == \A p \in DOMAIN violatedInvariants: violatedInvariants[p] = FALSE
 
 \* There is most one established leader for a certain epoch.
 Leadership1 == \A i, j \in Server:
