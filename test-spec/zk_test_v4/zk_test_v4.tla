@@ -1,5 +1,11 @@
 ----------------------------- MODULE zk_test_v4 -----------------------------
 (* This is the test specification for ZooKeeper in apache/zookeeper with version 3.7+. *)
+(* Procuve new bug of zk-4646. *)
+(* Note: In order to explore the potential consequences of the atomicity 
+    violation of the logic when a follower receives some types of
+    messages and prepares to call logRequest() or commit(), we separate
+    operations of persistence and commitment from some actions, and model
+    these two operations as separate actions. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
@@ -36,7 +42,11 @@ VARIABLES state,          \* State of server, in {LOOKING, FOLLOWING, LEADING}.
                           \* namely 'lastCommitted' in Leader. Starts from 0,
                           \* and increases monotonically before restarting.
           lastProcessed,  \* Index and zxid of the last processed txn.                          
-          initialHistory  \* history that server initially has before election.
+          initialHistory, \* history that server initially has before election. 
+          queuedRequests,   \* Sequence of requests queued to be saved to disk, 
+                            \* namely 'queuedRequests' in SyncRequestProcessor.
+          committedRequests \* Sequence of requests that have been committed,
+                            \* namely 'committedRequests' in CommittedProcessor.
 
 \* Variables only used for leader.
 VARIABLES learners,       \* Set of servers leader connects, 
@@ -102,7 +112,8 @@ VARIABLE recorder \* Consists: members of Parameters and pc, values.
                   \*  nPartition, nCrash]
 
 serverVars   == <<state, zabState, acceptedEpoch, currentEpoch>>
-logVars      == <<history, initialHistory, lastCommitted, lastProcessed>>
+logVars      == <<history, initialHistory, lastCommitted, lastProcessed,
+                  queuedRequests, committedRequests>> 
 disVars      == <<connecting, tempMaxEpoch>>
 noDisVars    == <<learners, electing, ackldRecv, forwarding>>
 leaderVars   == <<disVars, noDisVars>>
@@ -304,16 +315,18 @@ Leadership2 == \A epoch \in 1..MAXEPOCH: Cardinality(epochLeader'[epoch]) <= 1
 \* PrefixConsistency: Entries that have been committed 
 \* in history in any process is the same.
 PrefixConsistency == \A i, j \in Server:
-                        LET minCommit == Minimum({lastCommitted'[i].index, lastCommitted'[j].index})
+                        LET completeHis_1 == history'[i] \o queuedRequests'[i]
+                            completeHis_2 == history'[j] \o queuedRequests'[j]
+                            minCommit == Minimum({lastCommitted'[i].index, lastCommitted'[j].index})
                         IN \/ minCommit = 0
                            \/ /\ minCommit > 0
                               /\ \A index \in 1..minCommit:
-                                   TxnEqual(history'[i][index], history'[j][index])
+                                   TxnEqual(completeHis_1[index], completeHis_2[index])
 \* Integrity: If some follower delivers one transaction, then some primary has broadcast it.
 Integrity == \A i \in Server:
                 /\ state'[i] = LEADING 
                 /\ lastCommitted'[i].index > 0
-                => \A idx \in 1..lastCommitted'[i].index:
+                => \A idx \in 1..Minimum({lastCommitted'[i].index, Len(history'[i])}):
                      \E proposal \in proposalMsgsLog':
                        LET txn_proposal == [ zxid  |-> proposal.zxid,
                                              value |-> proposal.data ]
@@ -321,29 +334,34 @@ Integrity == \A i \in Server:
 \* Agreement: If some follower f delivers transaction a and some follower f' delivers transaction b,
 \*            then f' delivers a or f delivers b.
 Agreement == \A i, j \in Server:
-                /\ state'[i] = FOLLOWING /\ lastCommitted'[i].index > 0
-                /\ state'[j] = FOLLOWING /\ lastCommitted'[j].index > 0
+                LET c1 == Minimum({lastCommitted'[i].index, Len(history'[i])})
+                    c2 == Minimum({lastCommitted'[j].index, Len(history'[j])})
+                IN 
+                /\ state'[i] = FOLLOWING /\ c1 > 0
+                /\ state'[j] = FOLLOWING /\ c2 > 0
                 =>
-                \A idx1 \in 1..lastCommitted'[i].index, idx2 \in 1..lastCommitted'[j].index :
-                    \/ \E idx_j \in 1..lastCommitted'[j].index:
+                \A idx1 \in 1..c1, idx2 \in 1..c2 :
+                    \/ \E idx_j \in 1..c2:
                         TxnEqual(history'[j][idx_j], history'[i][idx1])
-                    \/ \E idx_i \in 1..lastCommitted'[i].index:
+                    \/ \E idx_i \in 1..c1:
                         TxnEqual(history'[i][idx_i], history'[j][idx2])
 \* Total order: If some follower delivers a before b, then any process that delivers b
 \*              must also deliver a and deliver a before b.
 TotalOrder == \A i, j \in Server: 
-                LET committed1 == lastCommitted'[i].index 
+                LET completeHis_1 == history'[i] \o queuedRequests'[i]
+                    completeHis_2 == history'[j] \o queuedRequests'[j]
+                    committed1 == lastCommitted'[i].index 
                     committed2 == lastCommitted'[j].index  
                 IN committed1 >= 2 /\ committed2 >= 2
                     => \A idx_i1 \in 1..(committed1 - 1) : \A idx_i2 \in (idx_i1 + 1)..committed1 :
                     LET logOk == \E idx \in 1..committed2 :
-                                     TxnEqual(history'[i][idx_i2], history'[j][idx])
+                                     TxnEqual(completeHis_1[idx_i2], completeHis_2[idx])
                     IN \/ ~logOk 
                        \/ /\ logOk 
                           /\ \E idx_j2 \in 1..committed2 : 
-                                /\ TxnEqual(history'[i][idx_i2], history'[j][idx_j2])
+                                /\ TxnEqual(completeHis_1[idx_i2], completeHis_2[idx_j2])
                                 /\ \E idx_j1 \in 1..(idx_j2 - 1):
-                                       TxnEqual(history'[i][idx_i1], history'[j][idx_j1])
+                                       TxnEqual(completeHis_1[idx_i1], completeHis_2[idx_j1])
 \* Local primary order: If a primary broadcasts a before it broadcasts b, then a follower that
 \*                      delivers b must also deliver a before b.
 LocalPrimaryOrder == LET p_set(i, e) == {p \in proposalMsgsLog': /\ p.source = i 
@@ -359,9 +377,9 @@ LocalPrimaryOrder == LET p_set(i, e) == {p \in proposalMsgsLog': /\ p.source = i
                                 /\ LET TxnPre  == IF ZxidComparePredicate(txn1.zxid, txn2.zxid) THEN txn2 ELSE txn1
                                        TxnNext == IF ZxidComparePredicate(txn1.zxid, txn2.zxid) THEN txn1 ELSE txn2
                                    IN \A j \in Server: /\ lastCommitted'[j].index >= 2
-                                                       /\ \E idx \in 1..lastCommitted'[j].index: 
+                                                       /\ \E idx \in 1..Minimum({lastCommitted'[j].index, Len(history'[j])}): 
                                                             TxnEqual(history'[j][idx], TxnNext)
-                                        => \E idx2 \in 1..lastCommitted'[j].index: 
+                                        => \E idx2 \in 1..Minimum({lastCommitted'[j].index, Len(history'[j])}): 
                                             /\ TxnEqual(history'[j][idx2], TxnNext)
                                             /\ idx2 > 1
                                             /\ \E idx1 \in 1..(idx2 - 1): 
@@ -370,8 +388,10 @@ LocalPrimaryOrder == LET p_set(i, e) == {p \in proposalMsgsLog': /\ p.source = i
 \*                       then f must deliver a before b.
 GlobalPrimaryOrder == \A i \in Server: lastCommitted'[i].index >= 2
                          => \A idx1, idx2 \in 1..lastCommitted'[i].index:
-                                \/ ~EpochPrecedeInTxn(history'[i][idx1], history'[i][idx2])
-                                \/ /\ EpochPrecedeInTxn(history'[i][idx1], history'[i][idx2])
+                                LET completeHis == history'[i] \o queuedRequests'[i]
+                                IN 
+                                \/ ~EpochPrecedeInTxn(completeHis[idx1], completeHis[idx2])
+                                \/ /\ EpochPrecedeInTxn(completeHis[idx1], completeHis[idx2])
                                    /\ idx1 < idx2
 \* Leader's committed log will always become longer and each txn committed is always the same.
 RECURSIVE TxnEqualHelper(_,_,_,_)
@@ -559,7 +579,9 @@ InitLogVars == /\ history = [s \in Server |-> << >>]
                /\ lastCommitted = [s \in Server |-> [ index |-> 0,
                                                       zxid  |-> <<0, 0>> ] ]
                /\ lastProcessed = [s \in Server |-> [ index |-> 0,
-                                                      zxid  |-> <<0, 0>>] ]            
+                                                      zxid  |-> <<0, 0>>] ]
+               /\ queuedRequests = [s \in Server |-> << >>]
+               /\ committedRequests = [s \in Server |-> << >>]    
 InitLeaderVars == /\ learners       = [s \in Server |-> {}]
                   /\ connecting     = [s \in Server |-> {}]
                   /\ electing       = [s \in Server |-> {}]
@@ -710,7 +732,8 @@ SetInitState ==
            /\ LET p1 == [source |-> l, epoch |-> 1, zxid |-> <<1, 1>>, data |-> 101]
                   p2 == [source |-> l, epoch |-> 1, zxid |-> <<1, 2>>, data |-> 102]
               IN proposalMsgsLog' = {p1, p2}
-           /\ UNCHANGED <<initialHistory, packetsSync, envVars, daInv>>
+           /\ UNCHANGED <<initialHistory, packetsSync, queuedRequests, committedRequests,
+                          envVars, daInv>>
            /\ UpdateRecorder(<<"SetInitState", l, f>>)
         /\ UpdateAfterAction
 
@@ -768,13 +791,23 @@ Shutdown(S, crashSet) ==
         /\ zabState'      = [s \in Server |-> IF s \in S THEN ELECTION ELSE zabState[s] ]
         /\ leaderAddr'    = [s \in Server |-> IF s \in S THEN NullPoint ELSE leaderAddr[s] ]
         /\ CleanInputBuffer(S)
+        /\ packetsSync' = [s \in Server |-> IF s \in S THEN [ notCommitted |-> << >>,
+                                                              committed |-> << >> ]
+                                                       ELSE packetsSync[s] ]
+        /\ queuedRequests' = [s \in Server |-> IF s \in S THEN << >> ELSE queuedRequests[s] ]
+        /\ committedRequests' = [s \in Server |-> IF s \in S THEN << >>
+                                                             ELSE committedRequests[s] ]
 
 FollowerShutdown(i, isCrash) ==
         /\ state'      = [state      EXCEPT ![i] = LOOKING]
         /\ zabState'   = [zabState   EXCEPT ![i] = ELECTION]
         /\ leaderAddr' = [leaderAddr EXCEPT ![i] = NullPoint]
-        \* in version 3.7.0, lastProcessed will be modified when turning to LOOKING
+        \* in version 3.7+, lastProcessed will be modified when turning to LOOKING
         /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
+        /\ packetsSync' = [packetsSync EXCEPT ![i].notCommitted = << >>, 
+                                              ![i].committed = << >>]
+        /\ queuedRequests' = [queuedRequests EXCEPT ![i] = << >>]
+        /\ committedRequests' = [committedRequests EXCEPT ![i] = << >>]
 
 LeaderShutdown(i, crashSet) ==
         /\ LET cluster == {i} \union learners[i]
@@ -856,10 +889,11 @@ PartitionStart(i, j) ==
            \/ /\ IsLooking(i) 
               /\ IsLooking(j)
               /\ IdComparePredicate(i, j) \* to compress state space
-              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars, leaderAddr, netVars>>
+              /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars, leaderAddr, netVars,
+                             queuedRequests, committedRequests, packetsSync>>
         /\ partition' = [partition EXCEPT ![i][j] = TRUE, ![j][i] = TRUE ]
-        /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, lastCommitted, tempMaxEpoch,
-                packetsSync, electionVars, status, verifyVars, daInv>>
+        /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, lastCommitted,
+                       tempMaxEpoch, electionVars, status, verifyVars, daInv>>
         /\ UpdateRecorder(<<"PartitionStart", i, j>>)
         /\ UpdateAfterAction 
 
@@ -882,7 +916,7 @@ NodeCrash(i) ==
         /\ status' = [status EXCEPT ![i] = OFFLINE ]
         /\ \/ /\ IsLooking(i)
               /\ UNCHANGED <<state, zabState, lastProcessed, connecting, noDisVars,
-                leaderAddr, netVars>>
+                leaderAddr, netVars, queuedRequests, committedRequests, packetsSync>>
            \/ /\ IsFollower(i)
               /\ LET connectedWithLeader == HasLeader(i)
                  IN \/ /\ connectedWithLeader
@@ -899,12 +933,12 @@ NodeCrash(i) ==
                     \/ /\ ~connectedWithLeader \* In current spec this condition should not happen 
                        /\ CleanInputBuffer({i})
                        /\ UNCHANGED <<state, zabState, lastProcessed, connecting, 
-                            noDisVars, leaderAddr>>
+                            noDisVars, leaderAddr, queuedRequests, committedRequests, packetsSync>>
            \/ /\ IsLeader(i)
               /\ LeaderShutdown(i, {i})
               /\ UNCHANGED <<connecting, electing, ackldRecv>>
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory, tempMaxEpoch,
-                packetsSync, electionVars, partition, verifyVars, daInv, lastCommitted>>
+                       electionVars, partition, verifyVars, daInv, lastCommitted>>
         /\ UpdateRecorder(<<"NodeCrash", i>>)
         /\ UpdateAfterAction 
 
@@ -919,8 +953,8 @@ NodeStart(i) ==
         /\ lastCommitted' = [lastCommitted  EXCEPT ![i] = [ index |-> 0,
                                                             zxid  |-> <<0, 0>> ] ]
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory,
-                leaderVars, packetsSync, electionVars, netVars, partition,
-                verifyVars, daInv>>                                                   
+                       leaderVars, packetsSync, electionVars, netVars, partition,
+                       queuedRequests, committedRequests, verifyVars, daInv>>                                                   
         /\ UpdateRecorder(<<"NodeStart", i>>)
         /\ UpdateAfterAction 
 -----------------------------------------------------------------------------
@@ -934,6 +968,10 @@ UpdateStateToPhaseSync(ld, fs) ==
         /\ initialHistory' = [s \in Server |-> IF s = ld THEN InitHistory(s)
                                                ELSE IF s \in fs THEN history[s] 
                                                                 ELSE initialHistory[s] ]
+        /\ queuedRequests' = [s \in Server |-> IF s = ld \/ s \in fs THEN << >>
+                                               ELSE queuedRequests[s] ]
+        /\ committedRequests' = [s \in Server |-> IF s = ld \/ s \in fs THEN << >> 
+                                                  ELSE committedRequests[s] ]
         /\ LET S == {ld} \union fs
                finalTempMaxEpoch == Maximum({acceptedEpoch[s]: s \in S }) + 1 
            IN 
@@ -1004,108 +1042,7 @@ UpdateConnectingOrAckldRecv(oldSet, sid) ==
                 IN (oldSet \ {old_info} ) \union {follower_info}
            ELSE LET follower_info == [ sid       |-> sid,
                                        connected |-> TRUE ]
-                IN oldSet \union {follower_info}
-
-(* Leader waits for receiving FOLLOWERINFO from a quorum including itself,
-   and chooses a new epoch e' as its own epoch and broadcasts LEADERINFO.
-   See getEpochToPropose in Leader for details. *)
-(*
-LeaderProcessFOLLOWERINFO(i, j) ==
-        /\ CheckEpoch  
-        /\ IsON(i)
-        /\ IsLeader(i)
-        /\ PendingFOLLOWERINFO(i, j)
-        /\ LET msg == rcvBuffer[j][i][1]
-               infoOk == IsMyLearner(i, j)
-               lastAcceptedEpoch == msg.mzxid[1]
-               sid_connecting == {c.sid: c \in connecting[i]}
-           IN 
-           /\ infoOk
-           /\ \/ \* 1. has not broadcast LEADERINFO 
-                 /\ WaitingForNewEpoch(i, sid_connecting)
-                 /\ \/ /\ zabState[i] = DISCOVERY
-                       /\ UNCHANGED daInv
-                    \/ /\ zabState[i] /= DISCOVERY
-                       /\ PrintT("Exception: waitingFotNewEpoch true," \o
-                          " while zabState not DISCOVERY.")
-                       /\ daInv' = [daInv EXCEPT !.stateConsistent = FALSE]
-                 /\ tempMaxEpoch' = [tempMaxEpoch EXCEPT ![i] = IF lastAcceptedEpoch >= tempMaxEpoch[i] 
-                                                                THEN lastAcceptedEpoch + 1
-                                                                ELSE @]
-                 /\ connecting'   = [connecting   EXCEPT ![i] = UpdateConnectingOrAckldRecv(@, j) ]
-                 /\ LET new_sid_connecting == {c.sid: c \in connecting'[i]}
-                    IN
-                    \/ /\ WaitingForNewEpochTurnToFalse(i, new_sid_connecting)
-                       /\ acceptedEpoch' = [acceptedEpoch EXCEPT ![i] = tempMaxEpoch'[i]]
-                       /\ LET newLeaderZxid == <<acceptedEpoch'[i], 0>>
-                              m == [ mtype |-> LEADERINFO,
-                                     mzxid |-> newLeaderZxid ]
-                          IN BroadcastLEADERINFO(i, j, m, TRUE)
-                    \/ /\ ~WaitingForNewEpochTurnToFalse(i, new_sid_connecting)
-                       /\ Discard(j, i)
-                       /\ UNCHANGED acceptedEpoch
-              \/  \* 2. has broadcast LEADERINFO 
-                 /\ ~WaitingForNewEpoch(i, sid_connecting)
-                 /\ Reply(i, j, [ mtype |-> LEADERINFO,
-                                  mzxid |-> <<acceptedEpoch[i], 0>> ] )
-                 /\ UNCHANGED <<tempMaxEpoch, connecting, acceptedEpoch, daInv>>
-        /\ UNCHANGED <<state, zabState, currentEpoch, logVars, noDisVars, followerVars, electionVars,
-                    envVars, verifyVars>>
-        /\ UpdateRecorder(<<"LeaderProcessFOLLOWERINFO", i, j>>)
-        /\ UpdateAfterAction 
-*)
-
-(* Follower receives LEADERINFO. If newEpoch >= acceptedEpoch, then follower 
-   updates acceptedEpoch and sends ACKEPOCH back, containing currentEpoch and
-   lastProcessedZxid. After this, zabState turns to SYNC. 
-   See registerWithLeader in Learner for details.*)
-(*
-FollowerProcessLEADERINFO(i, j) ==
-        /\ IsON(i)
-        /\ IsFollower(i)
-        /\ PendingLEADERINFO(i, j)
-        /\ LET msg      == rcvBuffer[j][i][1]
-               newEpoch == msg.mzxid[1]
-               infoOk   == IsMyLeader(i, j)
-               epochOk  == newEpoch >= acceptedEpoch[i]
-               stateOk  == zabState[i] = DISCOVERY
-           IN /\ infoOk
-              /\ \/ \* 1. Normal case
-                    /\ epochOk   
-                    /\ \/ /\ stateOk
-                          /\ \/ /\ newEpoch > acceptedEpoch[i]
-                                /\ acceptedEpoch' = [acceptedEpoch EXCEPT ![i] = newEpoch]
-                                /\ LET epochBytes == currentEpoch[i]
-                                       m == [ mtype  |-> ACKEPOCH,
-                                              mzxid  |-> lastProcessed[i].zxid, 
-                                              mepoch |-> epochBytes ] 
-                                   IN Reply(i, j, m)
-                             \/ /\ newEpoch = acceptedEpoch[i]
-                                /\ LET m == [ mtype  |-> ACKEPOCH,
-                                              mzxid  |-> lastProcessed[i].zxid,
-                                              mepoch |-> -1 ]
-                                   IN Reply(i, j, m)
-                                /\ UNCHANGED acceptedEpoch
-                          /\ zabState' = [zabState EXCEPT ![i] = SYNCHRONIZATION]
-                          /\ UNCHANGED daInv
-                       \/ /\ ~stateOk
-                          /\ PrintT("Exception: Follower receives LEADERINFO," \o
-                             " whileZabState not DISCOVERY.")
-                          /\ daInv' = [daInv EXCEPT !.stateConsistent = FALSE]
-                          /\ Discard(j, i)
-                          /\ UNCHANGED <<acceptedEpoch, zabState>>
-                    /\ UNCHANGED <<state, lastProcessed, connecting, noDisVars, leaderAddr>>
-                 \/ \* 2. Abnormal case - go back to election
-                    /\ ~epochOk 
-                    /\ FollowerShutdown(i)
-                    /\ Clean(i, j)
-                    /\ RemoveLearner(j, i)
-                    /\ UNCHANGED <<acceptedEpoch, daInv>>
-        /\ UNCHANGED <<currentEpoch, history, initialHistory, lastCommitted, tempMaxEpoch, packetsSync,
-                electionVars, envVars, verifyVars>>
-        /\ UpdateRecorder(<<"FollowerProcessLEADERINFO", i, j>>)
-        /\ UpdateAfterAction 
-*)
+                IN oldSet \union {follower_info}      
 ----------------------------------------------------------------------------- 
 RECURSIVE UpdateAckSidHelper(_,_,_,_)
 UpdateAckSidHelper(his, cur, end, target) ==
@@ -1304,78 +1241,6 @@ LeaderTurnToSynchronization(i) ==
         /\ currentEpoch' = [currentEpoch EXCEPT ![i] = acceptedEpoch[i]]
         /\ zabState'     = [zabState     EXCEPT ![i] = SYNCHRONIZATION]
 
-(* Leader waits for receiving ACKEPOPCH from a quorum, and check whether it has most recent
-   state summary from them. After this, leader's zabState turns to SYNCHRONIZATION.
-   See waitForEpochAck in Leader for details. *)
-(*
-LeaderProcessACKEPOCH(i, j) ==
-        /\ IsON(i)
-        /\ IsLeader(i)
-        /\ PendingACKEPOCH(i, j)
-        /\ LET msg == rcvBuffer[j][i][1]
-               infoOk == IsMyLearner(i, j)           
-               leaderStateSummary   == [ currentEpoch |-> currentEpoch[i], 
-                                         lastZxid     |-> lastProcessed[i].zxid ]
-               followerStateSummary == [ currentEpoch |-> msg.mepoch,  
-                                         lastZxid     |-> msg.mzxid ]
-               logOk == \* whether follower is no more up-to-date than leader
-                        ~IsMoreRecentThan(followerStateSummary, leaderStateSummary)
-               electing_quorum == {e \in electing[i]: e.inQuorum = TRUE }
-               sid_electing == {s.sid: s \in electing_quorum }
-           IN /\ infoOk
-              /\ \/ \* electionFinished = true, jump ouf of waitForEpochAck. 
-                    \* Different from code, here we still need to record info
-                    \* into electing, to help us perform syncFollower afterwards.
-                    \* Since electing already meets quorum, it does not break
-                    \* consistency between code and spec.
-                    /\ ElectionFinished(i, sid_electing)
-                    /\ electing' = [electing EXCEPT ![i] = UpdateElecting(@, j, msg.mzxid, FALSE) ]
-                    /\ Discard(j, i)
-                    /\ UNCHANGED <<state, zabState, currentEpoch, lastProcessed, learners,
-                                forwarding, leaderAddr, epochLeader, daInv>>
-                 \/ /\ ~ElectionFinished(i, sid_electing)
-                    /\ \/ /\ zabState[i] = DISCOVERY
-                          /\ UNCHANGED daInv
-                       \/ /\ zabState[i] /= DISCOVERY
-                          /\ PrintT("Exception: electionFinished false," \o
-                             " while zabState not DISCOVERY.")
-                          /\ daInv' = [daInv EXCEPT !.stateConsistent = FALSE ]
-                    /\ \/ /\ followerStateSummary.currentEpoch = -1
-                          /\ electing' = [electing EXCEPT ![i] = UpdateElecting(@, j, 
-                                                                msg.mzxid, FALSE) ]
-                          /\ Discard(j, i)
-                          /\ UNCHANGED <<state, zabState, currentEpoch, lastProcessed, learners,
-                                forwarding, leaderAddr, epochLeader>>
-                       \/ /\ followerStateSummary.currentEpoch > -1
-                          /\ \/ \* normal follower 
-                                /\ logOk
-                                /\ electing' = [electing EXCEPT ![i] = 
-                                            UpdateElecting(@, j, msg.mzxid, TRUE) ]
-                                /\ LET new_electing_quorum == {e \in electing'[i]: e.inQuorum = TRUE }
-                                       new_sid_electing == {s.sid: s \in new_electing_quorum }
-                                   IN 
-                                   \/ \* electionFinished = true, jump out of waitForEpochAck,
-                                      \* update currentEpoch and zabState.
-                                      /\ ElectionFinished(i, new_sid_electing) 
-                                      /\ LeaderTurnToSynchronization(i)
-                                      /\ LET newLeaderEpoch == acceptedEpoch[i]
-                                         IN epochLeader' = [epochLeader EXCEPT ![newLeaderEpoch]
-                                                = @ \union {i} ] \* for checking invariants
-                                   \/ \* there still exists electionFinished = false.
-                                      /\ ~ElectionFinished(i, new_sid_electing)
-                                      /\ UNCHANGED <<currentEpoch, zabState, epochLeader>>
-                                /\ Discard(j, i)
-                                /\ UNCHANGED <<state, lastProcessed, leaderAddr, learners, forwarding>>
-                             \/ \* Exists follower more recent than leader
-                                /\ ~logOk 
-                                /\ LeaderShutdown(i)
-                                /\ UNCHANGED <<electing, epochLeader, currentEpoch>>
-        /\ UNCHANGED <<acceptedEpoch, history, initialHistory, lastCommitted, disVars, ackldRecv,
-                        packetsSync, electionVars, envVars, proposalMsgsLog>>
-        /\ UpdateRecorder(<<"LeaderProcessACKEPOCH", i, j>>)
-        /\ UpdateAfterAction 
-*)
-
 \* Strip syncFollower from LeaderProcessACKEPOCH.
 \* Only when electionFinished = true and there exists some
 \* learnerHandler has not perform syncFollower, this 
@@ -1399,8 +1264,9 @@ LeaderSyncFollower(i, j) ==
               IN /\ SyncFollower(i, chosen.sid, chosen.peerLastZxid, FALSE)
                  /\ electing' = [electing EXCEPT ![i] = (@ \ {chosen}) \union {newChosen} ]
         /\ currentEpoch' = [currentEpoch EXCEPT ![i] = acceptedEpoch[i]]
-        /\ UNCHANGED <<state, zabState, acceptedEpoch, initialHistory, lastCommitted, lastProcessed, disVars,
-                learners, ackldRecv, followerVars, electionVars, envVars, epochLeader, daInv>>
+        /\ UNCHANGED <<state, zabState, acceptedEpoch, initialHistory, lastCommitted, lastProcessed,
+                       disVars, learners, ackldRecv, followerVars, electionVars, envVars, epochLeader,
+                       daInv, queuedRequests, committedRequests>>
         /\ UpdateRecorder(<<"LeaderSyncFollower", i, j>>)
         /\ UpdateAfterAction 
 
@@ -1446,7 +1312,7 @@ FollowerProcessSyncMessage(i, j) ==
                                 /\ lastCommitted' = [lastCommitted EXCEPT 
                                                     ![i] = [ index |-> truncIndex,
                                                              zxid  |-> truncZxid] ]
-                                /\ UNCHANGED <<daInv>>
+                                /\ UNCHANGED <<daInv, queuedRequests, committedRequests>>
         /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, leaderVars, followerVars, electionVars, envVars, verifyVars>>
         /\ UpdateRecorder(<<"FollowerProcessSyncMessage", i, j>>)
@@ -1465,12 +1331,11 @@ LastProposed(i) == IF Len(history[i]) = 0 THEN [ index |-> 0,
 LastQueued(i) == IF ~IsFollower(i) \/ zabState[i] /= SYNCHRONIZATION 
                  THEN LastProposed(i)
                  ELSE \* condition: IsFollower(i) /\ zabState = SYNCHRONIZATION
-                      LET packetsInSync == packetsSync[i].notCommitted
-                          lenSync  == Len(packetsInSync)
-                          totalLen == Len(history[i]) + lenSync
-                      IN IF lenSync = 0 THEN LastProposed(i)
+                      LET completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
+                          totalLen == Len(completeHis)
+                      IN IF totalLen = Len(history[i]) THEN LastProposed(i)
                          ELSE [ index |-> totalLen,
-                                zxid  |-> packetsInSync[lenSync].zxid ]
+                                zxid  |-> completeHis[totalLen].zxid ]
 
 IsNextZxid(curZxid, nextZxid) ==
             \/ \* first PROPOSAL in this epoch
@@ -1525,9 +1390,9 @@ LastCommitted(i) == IF zabState[i] = BROADCAST THEN lastCommitted[i]
                                ELSE [ index |-> lastInitialIndex,
                                       zxid  |-> history[i][lastInitialIndex].zxid ]
                          []   IsFollower(i) ->
-                            LET completeHis == history[i] \o packetsSync[i].notCommitted
-                                packetsCommitted == packetsSync[i].committed
-                                lenCommitted == Len(packetsCommitted)
+                            LET completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
+                                completeCommitted == committedRequests[i] \o packetsSync[i].committed
+                                lenCommitted == Len(completeCommitted)
                             IN IF lenCommitted = 0 \* return last one in initial history
                                THEN LET lastInitialIndex == Len(initialHistory[i])
                                     IN IF lastInitialIndex = 0 
@@ -1535,11 +1400,11 @@ LastCommitted(i) == IF zabState[i] = BROADCAST THEN lastCommitted[i]
                                               zxid  |-> <<0, 0>> ]
                                        ELSE [ index |-> lastInitialIndex ,
                                               zxid  |-> completeHis[lastInitialIndex].zxid ]
-                               ELSE                \* return tail of packetsCommitted
+                               ELSE                \* return tail of completeCommitted
                                     LET committedIndex == ZxidToIndex(completeHis, 
-                                                     packetsCommitted[lenCommitted] )
+                                                     completeCommitted[lenCommitted] )
                                     IN [ index |-> committedIndex, 
-                                         zxid  |-> packetsCommitted[lenCommitted] ]
+                                         zxid  |-> completeCommitted[lenCommitted] ]
                          []   OTHER -> lastCommitted[i]
 
 TxnWithIndex(i, idx) == IF ~IsFollower(i) \/ zabState[i] /= SYNCHRONIZATION 
@@ -1591,6 +1456,60 @@ ACKInBatches(queue, packets) ==
                             mzxid |-> head.zxid ]
              IN ACKInBatches( Append(queue, m_ack), newPackets )
 
+(* To split action when some node processes some message and
+   action when this node saves proposal to disk and reply ack,
+   we add variable 'queuedRequests', and when node wants to
+   call logRequest(), it will append new request to 
+   queuedRequests, not directly save it to disk, which simulates
+   func run() in SyncRequestProcessor.
+   See modifications when follower processes Proposal, Newleader,
+   and Uptodate. *)
+FollowerSyncProcessorLogRequest(i, j) == 
+        /\ IsON(i)
+        /\ IsFollower(i)
+        /\ IsMyLeader(i, j)
+        /\ queuedRequests[i] /= << >>
+        /\ LET toBeSaved == queuedRequests[i][1]
+               m_ack == [ mtype |-> ACK,
+                          mzxid |-> toBeSaved.zxid ]
+           IN 
+           /\ history' = [history EXCEPT ![i] = Append(@, toBeSaved) ]
+           /\ queuedRequests' = [queuedRequests EXCEPT ![i] = Tail(@) ]
+           /\ Send(i, j, m_ack)
+        /\ UNCHANGED <<initialHistory, lastCommitted, lastProcessed, committedRequests, serverVars,
+                       leaderVars, followerVars, electionVars, envVars, verifyVars, daInv>>
+        /\ UpdateRecorder(<<"FollowerSyncProcessorLogRequest", i, j>>)
+        /\ UpdateAfterAction
+
+(* To split action when some node processes some message and
+   action when this node wants to commit request, we add
+   variable 'committedRequests', and when node wants to call
+   commit(), it will append new request to committedRequests,
+   not directly commit, which simulates func run() in
+   CommitProcessor.
+   See modifications when follower processes Uptodate, and
+   Commit. *)
+FollowerCommitProcessorCommit(i) ==
+        /\ IsON(i)
+        /\ IsFollower(i)
+        /\ committedRequests[i] /= << >>
+        /\ LET toBeCommitted == committedRequests[i][1]
+               completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
+               commitIndex == ZxidToIndex(completeHis, toBeCommitted)
+               hasSaved == /\ commitIndex = lastCommitted[i].index + 1
+                           /\ commitIndex <= Len(history[i])
+           IN
+           /\ hasSaved
+           /\ lastCommitted' = [lastCommitted EXCEPT ![i] = [ index |-> commitIndex,
+                                                              zxid  |-> toBeCommitted ] ]
+           /\ lastProcessed' = [lastProcessed EXCEPT ![i] = [ index |-> commitIndex,
+                                                              zxid  |-> toBeCommitted ] ]
+           /\ committedRequests' = [committedRequests EXCEPT ![i] = Tail(@) ]
+        /\ UNCHANGED <<initialHistory, history, queuedRequests, serverVars, netVars,
+                       leaderVars, followerVars, electionVars, envVars, verifyVars, daInv>>
+        /\ UpdateRecorder(<<"FollowerCommitProcessorCommit", i>>)
+        /\ UpdateAfterAction
+
 (* Update currentEpoch, and logRequest every packets in
    packetsNotCommitted and clear it. As syncProcessor will 
    be called in logRequest, we have to reply acks here. *)
@@ -1603,15 +1522,16 @@ FollowerProcessNEWLEADER(i, j) ==
                packetsInSync == packetsSync[i].notCommitted
                m_ackld == [ mtype |-> ACKLD,
                             mzxid |-> msg.mzxid ]
-               ms_ack  == ACKInBatches( << >>, packetsInSync )
-               queue_toSend == <<m_ackld>> \o ms_ack \* send ACK-NEWLEADER first.
+               \* ms_ack  == ACKInBatches( << >>, packetsInSync )
+               queue_toSend == <<m_ackld>>
            IN /\ infoOk
               /\ currentEpoch' = [currentEpoch EXCEPT ![i] = acceptedEpoch[i] ]
-              /\ history'      = [history      EXCEPT ![i] = @ \o packetsInSync ]
+              /\ queuedRequests' = [queuedRequests EXCEPT ![i] = @ \o packetsInSync ]
               /\ packetsSync'  = [packetsSync  EXCEPT ![i].notCommitted = << >> ]
               /\ SendPackets(i, j, queue_toSend, TRUE)
-        /\ UNCHANGED <<state, zabState, acceptedEpoch, initialHistory, lastCommitted, lastProcessed,
-                leaderVars, leaderAddr, electionVars, envVars,verifyVars, daInv>>
+        /\ UNCHANGED <<state, zabState, acceptedEpoch, initialHistory, lastCommitted,
+                       lastProcessed, committedRequests, history, leaderVars, leaderAddr,
+                       electionVars, envVars, verifyVars, daInv>>
         /\ UpdateRecorder(<<"FollowerProcessNEWLEADER", i, j>>)
         /\ UpdateAfterAction 
 
@@ -1619,7 +1539,6 @@ FollowerProcessNEWLEADER(i, j) ==
 QuorumFormed(i, set) == i \in set /\ IsQuorum(set)
 
 UpdateElectionVote(i, epoch) == TRUE
-    \* UpdateProposal(i, currentVote[i].proposedLeader, currentVote[i].proposedZxid, epoch)
 
 \* See startZkServer in Leader for details.
 \* It is ok that set lastCommitted to lastProposed, since now leader just converts to
@@ -1673,7 +1592,8 @@ LeaderProcessACKLD(i, j) ==
                           /\ Discard(j, i)
                           /\ UNCHANGED <<ackldRecv, zabState, lastCommitted, lastProcessed>>
         /\ UNCHANGED <<state, acceptedEpoch, currentEpoch, history, initialHistory, disVars,
-                learners, electing, forwarding, followerVars, electionVars, envVars, verifyVars>>
+                       learners, electing, forwarding, followerVars, electionVars, envVars,
+                       queuedRequests, committedRequests, verifyVars>>
         /\ UpdateRecorder(<<"LeaderProcessACKLD", i, j>>)
         /\ UpdateAfterAction 
 
@@ -1697,18 +1617,26 @@ TxnsRcvWithCurEpoch(i) ==
 
 \* Txns received in current epoch but not committed.
 \* See pendingTxns in FollowerZooKeeper for details.
-PendingTxns(i) == IF ~IsFollower(i) \/ zabState[i] /= SYNCHRONIZATION 
+PendingTxns(i) == IF ~IsFollower(i) 
                   THEN SubSeq(history[i], lastCommitted[i].index + 1, Len(history[i]))
-                  ELSE LET packetsCommitted == packetsSync[i].committed
-                           completeHis == history[i] \o packetsSync[i].notCommitted
-                       IN IF Len(packetsCommitted) = 0 
-                          THEN SubSeq(completeHis, Len(initialHistory[i]) + 1, Len(completeHis))
-                          ELSE SubSeq(completeHis, LastCommitted(i).index + 1, Len(completeHis))
+                  ELSE IF zabState[i] /= SYNCHRONIZATION 
+                       THEN SubSeq(history[i] \o queuedRequests[i],
+                                   lastCommitted[i].index + Len(committedRequests[i]) + 1, 
+                                   Len(history[i]) + Len(queuedRequests[i]))
+                       ELSE LET packetsCommitted == committedRequests[i] \o packetsSync[i].committed
+                                completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
+                            IN IF Len(packetsCommitted) = 0 
+                               THEN SubSeq(completeHis, Len(initialHistory[i]) + 1, Len(completeHis))
+                               ELSE SubSeq(completeHis, LastCommitted(i).index + 1, Len(completeHis))
 
-CommittedTxns(i) == IF ~IsFollower(i) \/ zabState[i] /= SYNCHRONIZATION 
+CommittedTxns(i) == IF ~IsFollower(i)
                     THEN SubSeq(history[i], 1, lastCommitted[i].index)
-                    ELSE LET packetsCommitted == packetsSync[i].committed
-                             completeHis == history[i] \o packetsSync[i].notCommitted
+                    ELSE IF zabState[i] /= SYNCHRONIZATION 
+                         THEN SubSeq(history[i] \o queuedRequests[i],
+                                     1,
+                                     lastCommitted[i].index + Len(committedRequests[i]))
+                         ELSE LET packetsCommitted == committedRequests[i] \o packetsSync[i].committed
+                                  completeHis == history[i] \o queuedRequests[i] \o packetsSync[i].notCommitted
                          IN IF Len(packetsCommitted) = 0 THEN initialHistory[i]
                             ELSE SubSeq( completeHis, 1, LastCommitted(i).index )
 
@@ -1723,10 +1651,6 @@ TxnsAndCommittedMatch(txns, packetsCommitted) ==
                 ELSE /\ ZxidEqualPredicate(txns[len1].zxid, packetsCommitted[len2])
                      /\ TxnsAndCommittedMatch( SubSeq(txns, 1, len1 - 1), 
                                                SubSeq(packetsCommitted, 1, len2 - 1) )
-
-FollowerLogRequestInBatches(i, leader, ms_ack, packetsNotCommitted) ==
-        /\ history' = [history EXCEPT ![i] = @ \o packetsNotCommitted ]
-        /\ SendPackets(i, leader, ms_ack, TRUE)
 
 \* Since commit will call commitProcessor.commit, which will finally 
 \* update lastProcessed, we update it here atomically.
@@ -1755,17 +1679,20 @@ FollowerProcessUPTODATE(i, j) ==
         /\ LET msg == rcvBuffer[j][i][1]
                infoOk == IsMyLeader(i, j)
                packetsNotCommitted == packetsSync[i].notCommitted
-               ms_ack == ACKInBatches(<< >>, packetsNotCommitted)
+               packetsCommitted == packetsSync[i].committed
+               \* ms_ack == ACKInBatches(<< >>, packetsNotCommitted)
            IN /\ infoOk
               \* Here we ignore ack of UPTODATE.
               /\ UpdateElectionVote(i, acceptedEpoch[i])
-              /\ FollowerLogRequestInBatches(i, j, ms_ack, packetsNotCommitted)
-              /\ FollowerCommitInBatches(i)
+              /\ queuedRequests' = [queuedRequests EXCEPT ![i] = @ \o packetsNotCommitted ]
+              /\ committedRequests' = [committedRequests EXCEPT ![i] = @ \o packetsCommitted ]
               /\ packetsSync' = [packetsSync EXCEPT ![i].notCommitted = << >>,
                                                     ![i].committed = << >> ]
               /\ zabState' = [zabState EXCEPT ![i] = BROADCAST ]
+              /\ Discard(j, i)
         /\ UNCHANGED <<state, acceptedEpoch, currentEpoch, initialHistory, leaderVars,
-                leaderAddr, electionVars, envVars, verifyVars>>
+                       lastCommitted, lastProcessed, daInv, leaderAddr, electionVars,
+                       envVars, verifyVars, history>>
         /\ UpdateRecorder(<<"FollowerProcessUPTODATE", i, j>>)
         /\ UpdateAfterAction 
 -----------------------------------------------------------------------------
@@ -1805,7 +1732,8 @@ LeaderProcessRequest(i) ==
               /\ Broadcast(i, i, m_proposal, FALSE)
               /\ proposalMsgsLog' = proposalMsgsLog \union {m_proposal_for_checking}
         /\ UNCHANGED <<serverVars, initialHistory, lastCommitted, lastProcessed, leaderVars,
-                followerVars, electionVars, envVars, epochLeader, daInv>>
+                      followerVars, electionVars, envVars, epochLeader, daInv, queuedRequests,
+                      committedRequests>>
         /\ UpdateRecorder(<<"LeaderProcessRequest", i>>)
         /\ UpdateAfterAction 
 
@@ -1832,10 +1760,10 @@ FollowerProcessPROPOSAL(i, j) ==
                    /\ PrintT("Exception: Follower receives PROPOSAL, while" \o 
                         " the transaction is not the next.")
                    /\ daInv' = [daInv EXCEPT !.proposalConsistent = FALSE ]
-             /\ history' = [history EXCEPT ![i] = Append(@, newTxn)]
-             /\ Reply(i, j, m_ack)
+             /\ queuedRequests' = [queuedRequests EXCEPT ![i] = Append(@, newTxn)]
+             /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, initialHistory, lastCommitted, lastProcessed, leaderVars,
-                followerVars, electionVars, envVars, verifyVars>>
+                       followerVars, electionVars, envVars, verifyVars, history, committedRequests>>
         /\ UpdateRecorder(<<"FollowerProcessPROPOSAL", i, j>>)
         /\ UpdateAfterAction 
 
@@ -1934,7 +1862,7 @@ LeaderProcessACK(i, j) ==
                     /\ Discard(j, i)
                     /\ UNCHANGED <<history, lastCommitted, lastProcessed>>
         /\ UNCHANGED <<serverVars, initialHistory, leaderVars, followerVars, electionVars,
-                envVars, verifyVars>>
+                       envVars, verifyVars, queuedRequests, committedRequests>>
         /\ UpdateRecorder(<<"LeaderProcessACK", i, j>>)
         /\ UpdateAfterAction 
 
@@ -1962,18 +1890,15 @@ FollowerProcessCOMMIT(i, j) ==
                        /\ PrintT("Exception: Committing zxid not equals" \o
                                 " next pending txn zxid.")
                        /\ daInv' = [daInv EXCEPT !.commitConsistent = FALSE]
-                       /\ UNCHANGED <<lastCommitted, lastProcessed>>
+                       /\ UNCHANGED <<committedRequests>>
                     \/ /\ match
-                       /\ lastCommitted' = [lastCommitted EXCEPT 
-                                ![i] = [ index |-> lastCommitted[i].index + 1,
-                                         zxid  |-> firstElementZxid ] ]
-                       /\ lastProcessed' = [lastProcessed EXCEPT 
-                                ![i] = [ index |-> lastCommitted[i].index + 1,
-                                         zxid  |-> firstElementZxid ] ]
+                       /\ committedRequests' = [committedRequests EXCEPT ![i] = Append(@,
+                                                                                firstElementZxid)]
                        /\ UNCHANGED daInv
         /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, history, initialHistory, leaderVars, followerVars,
-                electionVars, envVars, verifyVars>>
+                       electionVars, envVars, verifyVars, queuedRequests, lastCommitted,
+                       lastProcessed>>
         /\ UpdateRecorder(<<"FollowerProcessCOMMIT", i, j>>)
         /\ UpdateAfterAction 
 -----------------------------------------------------------------------------
@@ -2051,6 +1976,9 @@ Next == \/ /\ ~AfterInitState
               \/ \E i, j \in Server: FollowerProcessPROPOSAL(i, j)
               \/ \E i, j \in Server: LeaderProcessACK(i, j) \* Sync + Broadcast
               \/ \E i, j \in Server: FollowerProcessCOMMIT(i, j)
+        (* Internal event: save a request to disk and reply ack, commit a request *)
+              \/ \E i, j \in Server: FollowerSyncProcessorLogRequest(i, j)
+              \/ \E i \in Server:    FollowerCommitProcessorCommit(i)
         (* An action used to judge whether there are redundant messages in network *)
               \/ \E i \in Server:    FilterNonexistentMessage(i)
        \* /\ UpdateAfterAction
@@ -2128,6 +2056,8 @@ TypeOK ==
     /\ initialHistory \in [Server -> Seq(HistoryItem)] 
     /\ lastCommitted \in [Server -> LastItem]
     /\ lastProcessed \in [Server -> LastItem]
+    /\ queuedRequests \in [Server -> Seq(HistoryItem)]
+    /\ committedRequests \in [Server -> Seq(Zxid)]
     /\ learners \in [Server -> SUBSET Server]
     /\ connecting \in [Server -> SUBSET Connecting]
     /\ electing \in [Server -> SUBSET Electing]
