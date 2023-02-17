@@ -62,7 +62,8 @@ This project is organized as follows.
 
 * *[zk_test_v4](test-spec/zk_test_v4)*
   * *[zk_test_v4.tla](test-spec/zk_test_v4/zk_test_v4.tla)* : TLA+ specification v4 for testing Zab implementation of ZooKeeper-3.7+.
-
+  * *[trace ](test-spec/zk_test_v4/trace)*: traces of new bug [ZK-4646](https://issues.apache.org/jira/browse/ZOOKEEPER-4646), ...
+  
 * *[doc.md](test-spec/doc.md)* : introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
 * *[experiment.md](test-spec/experiment.md)* : experiment design and results.
 * *[deep-bugs.md](test-spec/deep-bugs.md)* : list of triggered deep bugs.
