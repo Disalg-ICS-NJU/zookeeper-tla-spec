@@ -3,6 +3,7 @@
 (* Note: In order to explore the potential consequences of the atomicity 
     violation of the logic when a follower receives NEWLEADER, 
     the FollowerProcessNEWLEADER is divided into two atomic actions. *)
+(* Find a new bug zk-4643. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
