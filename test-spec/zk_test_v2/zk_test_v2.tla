@@ -1,5 +1,7 @@
 ----------------------------- MODULE zk_test_v2 -----------------------------
 (* This is the test specification for ZooKeeper in apache/zookeeper with version 3.7+. *)
+(* Note: This specification serves as a basic material for developing further 
+    test specifications. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
