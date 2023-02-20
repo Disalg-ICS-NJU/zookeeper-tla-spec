@@ -1,11 +1,10 @@
 ----------------------------- MODULE zk_test_v4 -----------------------------
 (* This is the test specification for ZooKeeper in apache/zookeeper with version 3.7+. *)
-(* Procuve new bug of zk-4646. *)
-(* Note: In order to explore the potential consequences of the atomicity 
-    violation of the logic when a follower receives some types of
-    messages and prepares to call logRequest() or commit(), we separate
-    operations of persistence and commitment from some actions, and model
-    these two operations as separate actions. *)
+(* Note: In order to explore the potential consequences of the multi-thread asynchronous 
+    processing logic of a follower receiving messages, logging transactions 
+    and committing transactions, we separate operations of persistence and commitment from 
+    the follower's message receiving actions in this specification. *)
+(* Find a new bug zk-4646. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC
 -----------------------------------------------------------------------------
