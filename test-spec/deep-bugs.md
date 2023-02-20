@@ -7,12 +7,14 @@ Following is the overview of some triggered bugs. Detailed description and analy
 - [ZK-4643](https://issues.apache.org/jira/browse/ZOOKEEPER-4643): Committed txns may be improperly truncated if follower crashes right after updating currentEpoch but before persisting txns to disk.
   - It will cause committed logs to be lost.
   - It is a violation of the atomicity of two actions that is guaranteed at the protocol level.
+  - This bug violates *leaderLogCompleteness* and can be triggered with the spec [zk_test_v3.tla](zk_test_v3/zk_test_v3.tla).
 
 ![trace-zk-4643](pic/Trace-ZK-4643.png)
 
 - [ZK-4646](https://issues.apache.org/jira/browse/ZOOKEEPER-4646): Committed txns may still be lost if followers crash after replying ACK-LD but before writing txns to disk.
   - It will cause committed logs to be lost.
   - It is related to the asynchronous execution by multi-thread implementation. It shows that the asynchronous logging of transactions may violate the atomicity of actions.
+  - This bug violates *leaderLogCompleteness* and can be triggered with the spec [zk_test_v4.tla](zk_test_v4/zk_test_v4.tla).
 
 ![trace-zk-4646](pic/Trace-ZK-4646.png)
 
@@ -24,9 +26,9 @@ We also reproduce several well-known deep bugs like
 
   - It will cause committed logs to be lost.
 
-  - This bug violates *CommittedLogMonotonicity* specified in the spec [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla).
+  - This bug violates *monotonicRead* and can be triggered with the spec [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla).
 
 - [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845): Data inconsistency issue due to retain database in leader election.
   - It will cause transaction logs to be inconsistent.
-  - This bug violates *ProcessConsistency* specified in the spec [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla).
+  - This bug violates *processConsistency* and can be triggered with the spec [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla).
 - ...
