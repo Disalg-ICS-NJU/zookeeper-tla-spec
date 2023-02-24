@@ -466,13 +466,13 @@ UpdateAfterAction == /\ aaInv' = [    leadership        |-> Leadership1 /\ Leade
                      /\ committedLog' = LET leader == leaderOracle'
                                         IN IF leader \notin Server THEN committedLog
                                            ELSE LET index  == lastCommitted'[leader].index
-                                                    on   == status'[leader]
-                                                    lead == state'[leader]
-                                                    bc   == zabState'[leader]
+                                                    on   == status'[leader] = ONLINE
+                                                    lead == state'[leader] = LEADING
+                                                    bc   == zabState'[leader] = BROADCAST
                                                 IN 
-                                                IF /\ on   = ONLINE
-                                                   /\ lead = LEADING 
-                                                   /\ bc   = BROADCAST
+                                                IF /\ on
+                                                   /\ lead 
+                                                   /\ bc
                                                 THEN IF index <= 0 THEN << >> 
                                                      ELSE SubSeq(history'[leader], 1, index)
                                                 ELSE committedLog

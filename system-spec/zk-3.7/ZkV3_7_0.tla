@@ -1891,7 +1891,7 @@ FilterNonexistentMessage(i) ==
 -----------------------------------------------------------------------------
 \* Defines how the variables may transition.
 Next == 
-        (* FLE modlue *)
+        (* FLE module *)
             \/ \E i, j \in Server: FLEReceiveNotmsg(i, j)
             \/ \E i \in Server:    FLENotmsgTimeout(i)
             \/ \E i \in Server:    FLEHandleNotmsg(i)

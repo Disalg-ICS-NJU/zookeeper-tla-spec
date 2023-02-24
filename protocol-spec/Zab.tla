@@ -47,7 +47,7 @@ VARIABLES learners,       \* Set of servers leader connects.
 
 \* Variables only used for follower.
 VARIABLES connectInfo \* If follower has connected with leader.
-                     \* If follower lost connection, then null.
+                      \* If follower lost connection, then null.
 
 \* Variable representing oracle of leader.
 VARIABLE  leaderOracle  \* Current oracle.
