@@ -497,6 +497,9 @@ UpdateAfterAction == /\ aaInv' = [    leadership        |-> Leadership1 /\ Leade
                      /\ doInit' = IF recorder'["pc"][1] = "SetInitState" THEN TRUE 
                                   ELSE doInit
 
+\* For TLC model checker
+AfterActionCheck == \A p \in DOMAIN aaInv: aaInv[p] = TRUE
+DuringActionCheck == \A p \in DOMAIN daInv: daInv[p] = TRUE
 ------
 \* Actions about network
 PendingFOLLOWERINFO(i, j) == /\ rcvBuffer[j][i] /= << >>
