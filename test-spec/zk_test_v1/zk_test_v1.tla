@@ -1955,7 +1955,7 @@ LeaderProcessACK(i, j) ==
                     /\ UNCHANGED <<history, lastCommitted, lastProcessed>>
         /\ UNCHANGED <<serverVars, initialHistory, leaderVars, followerVars, electionVars,
                 envVars, verifyVars>>
-        \ LET msg == rcvBuffer[j][i][1]
+        /\ LET msg == rcvBuffer[j][i][1]
            IN  UpdateRecorder(<<"LeaderProcessACK", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 
