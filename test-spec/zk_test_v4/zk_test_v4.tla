@@ -1379,7 +1379,8 @@ FollowerProcessPROPOSALInSync(i, j) ==
         /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, logVars, leaderVars, leaderAddr, electionVars, 
                 envVars, verifyVars>>
-        /\ UpdateRecorder(<<"FollowerProcessPROPOSALInSync", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN UpdateRecorder(<<"FollowerProcessPROPOSALInSync", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 
 RECURSIVE IndexOfFirstTxnWithEpoch(_,_,_,_)
@@ -1450,7 +1451,8 @@ FollowerProcessCOMMITInSync(i, j) ==
         /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, logVars, leaderVars, leaderAddr, electionVars, 
                 envVars, verifyVars>>
-        /\ UpdateRecorder(<<"FollowerProcessCOMMITInSync", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN UpdateRecorder(<<"FollowerProcessCOMMITInSync", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 
 RECURSIVE ACKInBatches(_,_)
@@ -1484,7 +1486,8 @@ FollowerSyncProcessorLogRequest(i, j) ==
            /\ Send(i, j, m_ack)
         /\ UNCHANGED <<initialHistory, lastCommitted, lastProcessed, committedRequests, serverVars,
                        leaderVars, followerVars, electionVars, envVars, verifyVars, daInv>>
-        /\ UpdateRecorder(<<"FollowerSyncProcessorLogRequest", i, j>>)
+        /\ LET toBeSaved == queuedRequests[i][1]
+           IN UpdateRecorder(<<"FollowerSyncProcessorLogRequest", i, j, toBeSaved.zxid>>)
         /\ UpdateAfterAction
 
 (* To split action when some node processes some message and
@@ -1513,7 +1516,8 @@ FollowerCommitProcessorCommit(i) ==
            /\ committedRequests' = [committedRequests EXCEPT ![i] = Tail(@) ]
         /\ UNCHANGED <<initialHistory, history, queuedRequests, serverVars, netVars,
                        leaderVars, followerVars, electionVars, envVars, verifyVars, daInv>>
-        /\ UpdateRecorder(<<"FollowerCommitProcessorCommit", i>>)
+        /\ LET toBeCommitted == committedRequests[i][1]
+           IN UpdateRecorder(<<"FollowerCommitProcessorCommit", i, toBeCommitted>>)
         /\ UpdateAfterAction
 
 (* Update currentEpoch, and logRequest every packets in
@@ -1740,7 +1744,9 @@ LeaderProcessRequest(i) ==
         /\ UNCHANGED <<serverVars, initialHistory, lastCommitted, lastProcessed, leaderVars,
                       followerVars, electionVars, envVars, epochLeader, daInv, queuedRequests,
                       committedRequests>>
-        /\ UpdateRecorder(<<"LeaderProcessRequest", i>>)
+        /\ LET len == Len(history'[i])
+               newZxid == history'[i][len].zxid 
+           IN UpdateRecorder(<<"LeaderProcessRequest", i, newZxid>>)
         /\ UpdateAfterAction 
 
 (* Follower processes PROPOSAL in BROADCAST. See processPacket
@@ -1770,7 +1776,8 @@ FollowerProcessPROPOSAL(i, j) ==
              /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, initialHistory, lastCommitted, lastProcessed, leaderVars,
                        followerVars, electionVars, envVars, verifyVars, history, committedRequests>>
-        /\ UpdateRecorder(<<"FollowerProcessPROPOSAL", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN UpdateRecorder(<<"FollowerProcessPROPOSAL", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 
 \* See outstandingProposals in Leader
@@ -1869,7 +1876,8 @@ LeaderProcessACK(i, j) ==
                     /\ UNCHANGED <<history, lastCommitted, lastProcessed>>
         /\ UNCHANGED <<serverVars, initialHistory, leaderVars, followerVars, electionVars,
                        envVars, verifyVars, queuedRequests, committedRequests>>
-        /\ UpdateRecorder(<<"LeaderProcessACK", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN  UpdateRecorder(<<"LeaderProcessACK", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 
 (* Follower processes COMMIT in BROADCAST. See processPacket
@@ -1905,7 +1913,8 @@ FollowerProcessCOMMIT(i, j) ==
         /\ UNCHANGED <<serverVars, history, initialHistory, leaderVars, followerVars,
                        electionVars, envVars, verifyVars, queuedRequests, lastCommitted,
                        lastProcessed>>
-        /\ UpdateRecorder(<<"FollowerProcessCOMMIT", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN  UpdateRecorder(<<"FollowerProcessCOMMIT", i, j, msg.mzxid>>)
         /\ UpdateAfterAction 
 -----------------------------------------------------------------------------
 (* Used to discard some messages which should not exist in network channel.
