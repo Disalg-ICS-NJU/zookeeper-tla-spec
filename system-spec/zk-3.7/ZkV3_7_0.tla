@@ -566,8 +566,6 @@ FLEWaitNewNotmsg(i) ==
               /\ UNCHANGED <<learners, connecting, electing, ackldRecv, forwarding,
                              tempMaxEpoch>>
            \/ /\ newState = LOOKING
-              /\ PrintT("Note: New state is LOOKING in FLEWaitNewNotmsgEnd," \o 
-                    " which should not happen.")
               /\ UNCHANGED <<zabState, learners, connecting, electing, ackldRecv,
                              forwarding, tempMaxEpoch, initialHistory, packetsSync>>
         /\ UNCHANGED <<lastCommitted, lastSnapshot, acceptedEpoch,
