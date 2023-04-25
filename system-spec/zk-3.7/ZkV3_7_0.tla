@@ -1338,14 +1338,14 @@ LastCommitted(i) == IF zabState[i] = BROADCAST THEN lastCommitted[i]
                                             THEN [ index |-> 0,
                                                    zxid  |-> <<0, 0>> ]
                                             ELSE [ index |-> lastIndex ,
-                                                   zxid  |-> history[lastIndex].zxid ]
+                                                   zxid  |-> history[i][lastIndex].zxid ]
                                        ELSE IF lastInitialIndex < lastCommitted[i].index
                                             THEN lastCommitted[i]
                                             ELSE IF lastInitialIndex = 0
                                                  THEN [ index |-> 0,
                                                         zxid  |-> <<0, 0>> ]
                                                  ELSE [ index |-> lastInitialIndex,
-                                                        zxid  |-> history[lastInitialIndex].zxid ]
+                                                        zxid  |-> history[i][lastInitialIndex].zxid ]
                                ELSE                \* return tail of packetsCommitted
                                     LET committedIndex == ZxidToIndex(completeHis, 
                                                      packetsCommitted[lenCommitted] )
