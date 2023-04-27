@@ -353,15 +353,15 @@ CheckParameterHelper(n, p, Comp(_,_)) == IF p \in DOMAIN Parameters
                                          ELSE TRUE
 CheckParameterLimit(n, p) == CheckParameterHelper(n, p, LAMBDA i, j: i < j)
 
-CheckTimeout        == CheckParameterLimit(recorder.nTimeout,     "MaxTimeoutFailures")
-CheckTransactionNum == CheckParameterLimit(recorder.nTransaction, "MaxTransactionNum")
-CheckEpoch          == CheckParameterLimit(recorder.maxEpoch,     "MaxEpoch")
+CheckTimeout        == CheckParameterLimit(recorder.nTimeout,      "MaxTimeoutFailures")
+CheckTransactionNum == CheckParameterLimit(recorder.nTransaction,  "MaxTransactionNum")
+CheckEpoch          == CheckParameterLimit(recorder.maxEpoch,      "MaxEpoch")
 CheckPartition      == /\ CheckTimeout
-                       /\ CheckParameterLimit(recorder.nPartition,   "MaxPartitions")
+                       /\ CheckParameterLimit(recorder.nPartition, "MaxPartitions")
 CheckCrash(i)       == /\ \/ IsLooking(i)
                           \/ /\ ~IsLooking(i)
                              /\ CheckTimeout
-                       /\ CheckParameterLimit(recorder.nCrash,    "MaxCrashes")
+                       /\ CheckParameterLimit(recorder.nCrash,     "MaxCrashes")
 
 CheckStateConstraints == CheckTimeout /\ CheckTransactionNum /\ CheckEpoch
 -----------------------------------------------------------------------------
@@ -1008,7 +1008,7 @@ SyncFollower(i, j, peerLastZxid, needRemoveHead) ==
             \*                sending NEWLEADER into SendSyncMsgs.
 
         IN \/ \* case1. peerLastZxid = lastProcessedZxid,
-              \*        sned DIFF & StartForwarding(lastProcessedZxid)
+              \*        send DIFF & StartForwarding(lastProcessedZxid)
               /\ ZxidEqual(peerLastZxid, lastProcessedZxid)
               /\ SendSyncMsgs(i, j, peerLastZxid, lastProcessed[i].index, 
                                     DIFF, needRemoveHead)

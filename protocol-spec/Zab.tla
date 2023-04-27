@@ -167,8 +167,7 @@ CheckParameterLimit(n, p) == CheckParameterHelper(n, p, LAMBDA i, j: i < j)
 CheckTimeout        == CheckParameterLimit(recorder.nTimeout,     "MaxTimeoutFailures")
 CheckTransactionNum == CheckParameterLimit(recorder.nTransaction, "MaxTransactionNum")
 CheckEpoch          == CheckParameterLimit(recorder.maxEpoch,     "MaxEpoch")
-CheckRestart        == /\ CheckTimeout 
-                       /\ CheckParameterLimit(recorder.nRestart,  "MaxRestarts")
+CheckRestart        == CheckParameterLimit(recorder.nRestart,  "MaxRestarts")
 
 CheckStateConstraints == CheckTimeout /\ CheckTransactionNum /\ CheckEpoch /\ CheckRestart
 -----------------------------------------------------------------------------
