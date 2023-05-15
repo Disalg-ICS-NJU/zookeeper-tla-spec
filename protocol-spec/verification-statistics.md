@@ -1,44 +1,55 @@
 # Verification Statistics 
-##### Experiment configuration
+## Experiment configuration
 
-Our statistical results include: diameter of the system states that have been traversed, the number of states that have been traversed, the number of different states that have been discovered, and the time spent in the experiment.
+Our statistical results include: 
 
-The machine configuration used in the experiment is 2.40 GHz, 10-core CPU, 64GB memory. The TLC version number is 1.7.0.
+    -   diameter of the system states that have been traversed
+    -   the number of states that have been traversed
+    -   the time spent in the experiment
+
+The machine configuration used in the experiment is 3.00 GHz, 6-core CPU, 16GB memory. The TLC version number is 1.7.0.
+
+## State space constraints in model checking
+
+Due to the state space explosion in model checking and the complex actions of Zab protocol, as well as unlimited number of rounds and unlimited length of history, it is impossible to traverse all states. We try to let models can tap into larger state space. See CONSTANT *Parameters* for details.  
+
+In addition to this, we also use techniques of state space reduction to compress the model's state space. Which is:
+
+-   Focusing on the key logic of the protocol
+    -   Manual labeling of each modules empirically
+-   Discover the equivalence between states
+    -   When the event acts on multiple nodes, and there exists a subset that each node in the subset has the same status, we let these nodes ordered if the event is performed
+-   Discover the independence between events
+    -   When two events are independent of each other, and the execution order does not affect the behavior of subsequent events, we can only save one scenario
+
+## Verification statistics of model checking 
+We use two mode for verifying Zab Protocol: model-checking mode and simulation mode. We terminate model checking when cost time exceeds 24 hours.
+
+For invariant properties checked in model checking, see invariants in *[doc.md](doc.md)*.
+
+Every TLC model contains four parameters, **N** for num of servers, **L** for maximum history length, **T** for maximum times of timeout, **R** for maximum times of node restart.
 
 
-
-##### State space constraints in model checking
-
-Due to the state space explosion in model checking and the complex actions of Zab protocol, as well as unlimited number of rounds and unlimited length of history, it is impossible to traverse all states.  
-We try to let models can tap into larger state space. See CONSTANT *Parameters* for details.
-
-
-
-##### Verification statistics of model checking  
-|  Mode  |     TLC model         |    Diameter   |     num of states  | time of checking(hh:mm:ss) |
+|  Mode  |   TLC model(N, L, T, R)     |    Diameter   |   Num of states  | Time of checking(hh:mm:ss) |
 | ----- | ---------------------- | ------------- | ------------------ | ------------------ |
-| BFS   | (2 servers,3 rounds,2 transactions)    |     59   |  7758091583 |  17:28:17|
-| Simulation | (2 servers,3 rounds,2 transactions)   |   -|  6412825222| 17:07:20  |
-| BFS   | (3 servers,2 rounds,2 transactions)    |     19   |  4275801206 |  09:40:08|
-| Simulation | (3 servers,2 rounds,2 transactions)   |   -|  10899460942| 20:15:11  |
-| BFS   | (3 servers,2 rounds,3 transactions)   |    22    |  8740566213  | 17:49:09 |
-| Simulation | (3 servers,2 rounds,3 transactions)  |  -    | 9639135842  |   20:10:00 |
-| BFS    |  (3 servers,3 rounds,2 transactions)    |    21    | 7079744342    |14:17:45 |
-| Simulation | (3 servers,3 rounds,2 transactions)    |  -  |  6254964039   | 15:08:42 |
-| BFS    |  (4 servers,3 rounds,2 transactions)    |    16    | 5634112480  |15:42:09 |
-| Simulation | (4 servers,3 rounds,2 transactions)    |  -  |  3883461291   | 15:52:03 |
+| model-checking | (2,2,2,0)   |   38  |       19,980 | 00:00:03 |
+| model-checking | (2,2,0,2)   |   38  |       25,959 | 00:00:04 |
+| model-checking | (2,2,1,1)   |   38  |       26,865 | 00:00:04 |
+| model-checking | (2,3,2,2)   |   60  |   10,370,967 | 00:06:58 |
+| model-checking | (3,2,1,0)   |   43  |      610,035 | 00:00:28 |
+| model-checking | (3,2,0,1)   |   50  |    1,902,139 | 00:02:36 |
+| model-checking | (3,2,2,0)   |   54  |   26,126,204 | 00:17:07 |
+| model-checking | (3,2,1,1)   |   61  |   84,543,312 | 01:00:18 |
+| model-checking | (3,2,0,2)   |   68  |  245,606,642 | 03:41:23 |
+| model-checking | (3,2,2,1)   |   50  |1,721,643,089 | > 24:00:00 |
+| model-checking | (3,2,1,2)   |   46  |1,825,094,679 | > 24:00:00 |
+| simulation     | (3,3,3,3)   |   -   |1,194,558,650 | > 24:00:00 |
+| model-checking | (4,2,1,0)   |   64  |   21,393,294 | 00:23:29 |
+| model-checking | (4,2,0,1)   |   71  |   79,475,010 | 01:37:31 |
+| model-checking | (4,2,2,0)   |   57  |1,599,588,210 | > 24:00:00 |
+| simulation     | (5,3,2,2)   |   -   |  817,181,422 | > 24:00:00 |
+| simulation     | (5,2,3,3)   |   -   |1,044,870,264 | > 24:00:00 |
 
-
-
-##### Verification statistics with parameters (count of servers, MaxTotalRestartNum, MaxElectionNum, MaxTransactionNum)
-
-|  Mode  |     TLC model         |    Diameter   |     num of states  | time of checking(hh:mm:ss) |
-| ----- | ---------------------- | ------------- | ------------------ | ------------------ |
-| BFS   | (2,2,3,2,termination) |     55   |  10772649   |  00:02:21|
-| BFS   | (3,1,1,2)             |     45   |  9602018536 |  31:01:57|
-
-
-
-##### Issues
+## Issues
 
 Besides, we have found several issues related to the ambiguous description of the Zab protocol. Details can be found at [issues.md](issues.md).

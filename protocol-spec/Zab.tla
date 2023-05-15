@@ -1125,7 +1125,7 @@ Spec == Init /\ [][Next]_vars
 ----------------------------------------------------------------------------
 \* Define safety properties of Zab.
 
-ShouldNotBeTriggered == \A p \in DOMAIN violatedInvariants: violatedInvariants[p] = FALSE
+DuringActionCheck == \A p \in DOMAIN violatedInvariants: violatedInvariants[p] = FALSE
 
 \* There is most one established leader for a certain epoch.
 Leadership1 == \A i, j \in Server:
