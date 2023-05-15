@@ -43,9 +43,9 @@ This project is organized as follows.
 * *[zk-3.7](system-spec/zk-3.7)*
   * *[ZkV3_7_0.tla](system-spec/zk-3.7/ZkV3_7_0.tla)* ： TLA+ specification of Zab implementation of ZooKeeper-3.7.0.
   * *[FastLeaderElection.tla](system-spec/zk-3.7/FastLeaderElection.tla)* :  TLA+ specification of the Fast Leader Election.
-
 * *[doc.md](system-spec/doc.md)* : introduction of ZK's system specification, quality ensurance and feedbacks from community.
 * *[conformance-checking.md](system-spec/conformance-checking.md)* : experience of conformance checking. 
+* *[verification-statistics.md](system-spec/verification-statistics.md)* : statistics of verification.
 
 #### *[test-spec](test-spec)*
 
@@ -53,24 +53,20 @@ This project is organized as follows.
   * *[zk_test_v1.tla](test-spec/zk_test_v1/zk_test_v1.tla)* : TLA+ specification v1 for testing Zab implementation of ZooKeeper-3.4.10.
   * *[Zab-simulate.ini](test-spec/zk_test_v1/Zab-simulate.ini)* : TLC configuration file for *[zk_test_v1.tla](test-spec/zk_test_v1/zk_test_v1.tla)*.
   * *[trace ](test-spec/zk_test_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
-  
 * *[zk_test_v2](test-spec/zk_test_v2)*
   * *[zk_test_v2.tla](test-spec/zk_test_v2/zk_test_v2.tla)* : TLA+ specification v2 for testing Zab implementation of ZooKeeper-3.7+.
   * *[Zab-simulate.ini](test-spec/zk_test_v2/Zab-simulate.ini)* : TLC configuration file for *[zk_test_v2.tla](test-spec/zk_test_v2/zk_test_v2.tla)*.
-  
 * *[zk_test_v3](test-spec/zk_test_v3)*
   * *[zk_test_v3.tla](test-spec/zk_test_v3/zk_test_v3.tla)* : TLA+ specification v3 for testing Zab implementation of ZooKeeper-3.7+.
   * *[Zab-simulate.ini](test-spec/zk_test_v3/Zab-simulate.ini)* : TLC configuration file for *[zk_test_v3.tla](test-spec/zk_test_v3/zk_test_v3.tla)*.
   * *[trace ](test-spec/zk_test_v3/trace)*: traces of new bug [ZK-4643](https://issues.apache.org/jira/browse/ZOOKEEPER-4643), ...
-  
 * *[zk_test_v4](test-spec/zk_test_v4)*
   * *[zk_test_v4.tla](test-spec/zk_test_v4/zk_test_v4.tla)* : TLA+ specification v4 for testing Zab implementation of ZooKeeper-3.7+.
   * *[Zab-simulate.ini](test-spec/zk_test_v4/Zab-simulate.ini)* : TLC configuration file for *[zk_test_v4.tla](test-spec/zk_test_v4/zk_test_v4.tla)*.
   * *[trace ](test-spec/zk_test_v4/trace)*: traces of new bug [ZK-4646](https://issues.apache.org/jira/browse/ZOOKEEPER-4646), ...
-
 * *[zk_test_v5](test-spec/zk_test_v5)*
   * *[zk_test_v5.tla](test-spec/zk_test_v5/zk_test_v5.tla)* : TLA+ specification v5 for testing Zab implementation of ZooKeeper-3.7+.
-  
 * *[doc.md](test-spec/doc.md)* : introduction of ZK's test specification and the [Model Checking-driven Explorative Testing (MET)](https://github.com/Lingzhi-Ouyang/MET) framework. 
 * *[experiment.md](test-spec/experiment.md)* : experiment design and results.
 * *[deep-bugs.md](test-spec/deep-bugs.md)* : list of triggered deep bugs.
+* *[verification-statistics.md](test-spec/verification-statistics.md)* : statistics of verification.

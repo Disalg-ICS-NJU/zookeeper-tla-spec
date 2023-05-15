@@ -11,7 +11,7 @@ The machine configuration used in the experiment is 3.00 GHz, 6-core CPU, 16GB m
 
 ## State space constraints in model checking
 
-Due to the state space explosion in model checking and the complex actions of Zab protocol, as well as unlimited number of rounds and unlimited length of history, it is impossible to traverse all states. We try to let models can tap into larger state space. See CONSTANT *Parameters* for details.  
+Due to the state space explosion in model checking and the complex actions of Zab protocol, as well as unlimited number of rounds and unlimited length of history, it is impossible to traverse all states. We try to let models tap into larger state space. See CONSTANT *Parameters* for details.  
 
 In addition to this, we also use techniques of state space reduction to compress the model's state space. Which is:
 
