@@ -1524,8 +1524,8 @@ FollowerCommitProcessorCommit(i) ==
         /\ UpdateAfterAction
 
 (* Update currentEpoch, and logRequest every packets in
-   packetsNotCommitted and clear it. As syncProcessor will 
-   be called in logRequest, we have to reply acks here. *)
+   packetsNotCommitted and clear it. Reply ACK-NEWLEADER
+   at last. *)
 FollowerProcessNEWLEADER(i, j) ==
         /\ IsON(i)
         /\ IsFollower(i)

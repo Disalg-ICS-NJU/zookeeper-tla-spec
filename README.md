@@ -72,3 +72,5 @@ This project is organized as follows.
 * *[experiment.md](test-spec/experiment.md)* : experiment design and results.
 * *[deep-bugs.md](test-spec/deep-bugs.md)* : list of triggered deep bugs.
 
+* *[zk_test_v5](test-spec/zk_test_v5)*
+  * *[zk_test_v5.tla](test-spec/zk_test_v5/zk_test_v5.tla)* : TLA+ specification v5 for testing Zab implementation of ZooKeeper-3.7+.
