@@ -17,7 +17,15 @@ Our experiments are conducted with the assistance of  the tool [tlc-cmd](https:/
 
 ### Results
 
-#### Invariant Violations
+#### Triggering of Deep Bugs
+
+Exposed bugs can be found in [deep-bugs.md](deep-bugs.md).
+
+Invariant violation results of the bugs can be found in *[verification-statistics.md](verification-statistics.md)*. 
+
+
+
+###### Probabilities of Invariant Violations
 
 With the following state space constraints for the spec  [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla) :
 
@@ -32,10 +40,6 @@ we obtained the following statistics of invariant violations:
 
 - 808 / 160,007 ≈ 0.5% traces violate *committedLogMonotonicity*
 - 2087 / 160007 ≈ 1.3% traces violate *processConsistency*
-- ...
 
 
 
-#### Triggering of Deep Bugs
-
-Details can be found at [deep-bugs.md](deep-bugs.md)
