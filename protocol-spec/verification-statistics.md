@@ -44,6 +44,7 @@ Every TLC model contains four parameters, **N** for num of servers, **L** for ma
 | model-checking | (3,2,2,1)   |   50  |1,721,643,089 | > 24:00:00 |
 | model-checking | (3,2,1,2)   |   46  |1,825,094,679 | > 24:00:00 |
 | simulation     | (3,3,3,3)   |   -   |1,194,558,650 | > 24:00:00 |
+| simulation     | (3,2,4,4)   |   -   |1,662,511,592 | > 24:00:00 |
 | model-checking | (4,2,1,0)   |   64  |   21,393,294 | 00:23:29 |
 | model-checking | (4,2,0,1)   |   71  |   79,475,010 | 01:37:31 |
 | model-checking | (4,2,2,0)   |   57  |1,599,588,210 | > 24:00:00 |
