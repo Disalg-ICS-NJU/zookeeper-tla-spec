@@ -19,13 +19,12 @@ Following is the overview of some triggered bugs. Detailed description and analy
 ![trace-zk-4646](pic/Trace-ZK-4646.png)
 
 * [ZK-4685](https://issues.apache.org/jira/browse/ZOOKEEPER-4685): Unnecessary system unavailability due to Leader shutdown when follower sent ACK of PROPOSAL before sending ACK of NEWLEADER in log recovery.
-  * It will lead to unnecessary recovery procedures, consumes extra time before servers get into the BROADCAST phase and reduces the service's availability. 
+  * It will lead to unnecessary recovery procedures, consuming extra time before servers get into the BROADCAST phase and reducing the service's availability. 
+  * This bug violates *daInv.messageLegal* and can be triggered with the spec [zk_test_v5.tla](zk_test_v5/zk_test_v5.tla).
 
 
 
-
-
-We also reproduce several well-known deep bugs like
+We also expose other deep bugs like
 
 * [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911):  Data inconsistency caused by DIFF sync uncommitted log.
 
