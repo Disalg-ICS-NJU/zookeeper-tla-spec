@@ -775,9 +775,14 @@ SwitchToFollowing(i) ==
 
 Shutdown(S, crashSet) ==
         /\ state'         = [s \in Server |-> IF s \in S THEN LOOKING ELSE state[s] ]
+        \* \* Root cause of ZK-2845
         /\ lastProcessed' = [s \in Server |-> IF s \in crashSet
                                                          THEN InitLastProcessed(s)
                                                          ELSE lastProcessed[s] ]
+        \* \* Fix this for better reproducing ZK-3911
+        \* /\ lastProcessed' = [s \in Server |-> IF s \in S
+        \*                                                  THEN InitLastProcessed(s)
+        \*                                                  ELSE lastProcessed[s] ]
         /\ zabState'      = [s \in Server |-> IF s \in S THEN ELECTION ELSE zabState[s] ]
         /\ leaderAddr'    = [s \in Server |-> IF s \in S THEN NullPoint ELSE leaderAddr[s] ]
         /\ CleanInputBuffer(S)
@@ -788,10 +793,13 @@ FollowerShutdown(i, isCrash) ==
         /\ leaderAddr' = [leaderAddr EXCEPT ![i] = NullPoint]
         \* since lastProcessed will be updated in nodestart,
         \* there is no necessary to change lastProcessed here, just for align
+        \* \* Root cause of ZK-2845
         /\ \/ /\ isCrash 
               /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
            \/ /\ ~isCrash
               /\ UNCHANGED lastProcessed
+        \* \* Fix this for better reproducing ZK-3911
+        \* /\ lastProcessed' = [lastProcessed EXCEPT ![i] = InitLastProcessed(i)]
 
 LeaderShutdown(i, crashSet) ==
         /\ LET cluster == {i} \union learners[i]
@@ -938,7 +946,7 @@ NodeStart(i) ==
         /\ UNCHANGED <<acceptedEpoch, currentEpoch, history, initialHistory,
                 leaderVars, packetsSync, electionVars, netVars, partition,
                 verifyVars, daInv>>                                                   
-        /\ UpdateRecorder(<<"NodeStart", i>>)
+        /\ UpdateRecorder(<<"NodeStart", i, currentEpoch'[i], lastProcessed'[i]>>)
         /\ UpdateAfterAction 
 -----------------------------------------------------------------------------
 \* ld: leader, fs: set of followers
@@ -998,7 +1006,7 @@ ElectionAndDiscovery(i, S) ==
         \* Election and connection finished, then complete discovery
         /\ UNCHANGED <<currentEpoch, lastCommitted, lastProcessed,
                 netVars, envVars, proposalMsgsLog, daInv>>
-        /\ UpdateRecorder(<<"ElectionAndDiscovery", i, S\{i} >>)
+        /\ UpdateRecorder(<<"ElectionAndDiscovery", i, S\{i}, currentEpoch'[i], lastProcessed'[i] >>)
         /\ UpdateAfterAction 
 
 \* waitingForNewEpoch in Leader
@@ -1206,7 +1214,9 @@ StartForwarding(i, j, lastSeenZxid, lastSeenIndex, mode, needRemoveHead) ==
         /\ LET lastCommittedIndex == IF zabState[i] = BROADCAST 
                                      THEN lastCommitted[i].index
                                      ELSE Len(initialHistory[i])
-               lastProposedIndex  == Len(history[i])
+               lastProposedIndex  == IF zabState[i] = BROADCAST 
+                                     THEN Len(history[i])
+                                     ELSE lastProcessed[i].index
                queue_origin == IF lastSeenIndex >= lastProposedIndex 
                                THEN << >>
                                ELSE queuePackets(<< >>, history[i], 
@@ -1217,8 +1227,8 @@ StartForwarding(i, j, lastSeenZxid, lastSeenIndex, mode, needRemoveHead) ==
                                   ELSE setPacketsForChecking( { }, i, 
                                         acceptedEpoch[i], history[i],
                                         lastSeenIndex + 1, lastProposedIndex)
-               m_trunc == [ mtype |-> TRUNC, mtruncZxid |-> lastSeenZxid ]
-               m_diff  == [ mtype |-> DIFF,  mzxid |-> lastSeenZxid, mindex |-> lastSeenIndex ]
+               m_trunc == [ mtype |-> TRUNC, mzxid |-> lastSeenZxid ]
+               m_diff  == [ mtype |-> DIFF,  mzxid |-> lastSeenZxid, mindex |-> ZxidToIndex(history[i], lastSeenZxid) ]
                newLeaderZxid == <<acceptedEpoch[i], 0>>
                m_newleader == [ mtype |-> NEWLEADER,
                                 mzxid |-> newLeaderZxid ]
@@ -1442,10 +1452,19 @@ FollowerProcessSyncMessage(i, j) ==
                     /\ daInv' = [daInv EXCEPT !.stateConsistent = FALSE]
                     /\ UNCHANGED <<logVars>>
                  \/ /\ stateOk
-                    /\ \/ /\ msg.mtype = DIFF                    
-                          /\ UNCHANGED <<logVars, daInv>>
+                    /\ \/ /\ msg.mtype = DIFF  
+                          /\ LET mzxid == msg.mzxid
+                                 mindex == msg.mindex
+                             IN 
+                                \* \* Bug in 3.4.10
+                                /\ lastProcessed' = [lastProcessed EXCEPT 
+                                                    ![i] = [ index |-> mindex,
+                                                             zxid  |-> mzxid] ]                
+                                /\ UNCHANGED <<history, initialHistory, lastCommitted, daInv>> 
+                                \* \* Fix
+                                \* /\ UNCHANGED <<logVars, daInv>>
                        \/ /\ msg.mtype = TRUNC
-                          /\ LET truncZxid == msg.mtruncZxid
+                          /\ LET truncZxid == msg.mzxid
                                  truncIndex == ZxidToIndex(history[i], truncZxid)
                              IN
                              \/ /\ truncIndex > Len(history[i])
@@ -1465,17 +1484,19 @@ FollowerProcessSyncMessage(i, j) ==
                                 /\ UNCHANGED <<daInv>>
         /\ Discard(j, i)
         /\ UNCHANGED <<serverVars, leaderVars, followerVars, electionVars, envVars, verifyVars>>
-        /\ UpdateRecorder(<<"FollowerProcessSyncMessage", i, j>>)
+        /\ LET msg == rcvBuffer[j][i][1]
+           IN UpdateRecorder(<<"FollowerProcessSyncMessage", i, j, msg.mzxid, msg.mtype>>)
         /\ UpdateAfterAction 
 
 \* See lastProposed in Leader for details.
 LastProposed(i) == IF Len(history[i]) = 0 THEN [ index |-> 0, 
                                                  zxid  |-> <<0, 0>> ]
-                   ELSE
-                   LET lastIndex == Len(history[i])
-                       entry     == history[i][lastIndex]
-                   IN [ index |-> lastIndex,
-                        zxid  |-> entry.zxid ]
+                   ELSE IF IsLeader(i) /\ zabState[i] = SYNCHRONIZATION 
+                        \* In the spec we do not model the zxid <newEpoch, 0>
+                        THEN [ index |-> lastProcessed[i].index, zxid  |-> lastProcessed[i].zxid ]
+                        ELSE LET lastIndex == Len(history[i])
+                                 entry     == history[i][lastIndex]
+                             IN [ index |-> lastIndex, zxid  |-> entry.zxid ]
 
 \* See lastQueued in Learner for details.
 LastQueued(i) == IF ~IsFollower(i) \/ zabState[i] /= SYNCHRONIZATION 
@@ -1643,7 +1664,9 @@ UpdateElectionVote(i, epoch) == TRUE
 \* broadcast so it has not offer service.
 StartZkServer(i) ==
         LET latest == LastProposed(i)
-        IN /\ lastCommitted' = [lastCommitted EXCEPT ![i] = latest]
+        IN \* Start up Leader ZooKeeper server and initialize zxid to the new epoch
+           \* In the spec we do not model the zxid <newEpoch, 0>
+           /\ lastCommitted' = [lastCommitted EXCEPT ![i] = latest]
            /\ lastProcessed' = [lastProcessed EXCEPT ![i] = latest]
            /\ UpdateElectionVote(i, acceptedEpoch[i])
 
@@ -2114,7 +2137,7 @@ Message ==
     [ mtype: {LEADERINFO}, mzxid: Zxid ] \union
     [ mtype: {ACKEPOCH}, mzxid: Zxid, mepoch: Nat \union {-1} ] \union
     [ mtype: {DIFF}, mzxid: Zxid, mindex: Nat ] \union 
-    [ mtype: {TRUNC}, mtruncZxid: Zxid ] \union 
+    [ mtype: {TRUNC}, mzxid: Zxid ] \union 
     [ mtype: {PROPOSAL}, mzxid: Zxid, mdata: Value ] \union 
     [ mtype: {COMMIT}, mzxid: Zxid ] \union 
     [ mtype: {NEWLEADER}, mzxid: Zxid ] \union 
