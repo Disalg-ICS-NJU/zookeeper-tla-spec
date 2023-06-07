@@ -1,0 +1,7 @@
+['SetInitState', 's0', ['s1', 's2']]
+['FollowerProcessPROPOSAL', 's2', 's0', [1, 2]]
+['LeaderProcessACK', 's0', 's2', [1, 2]]
+['NodeCrash', 's1']
+['NodeCrash', 's0']
+['NodeStart', 's1', 1, {'zxid': [1, 1], 'index': 1}]
+['ElectionAndDiscovery', 's1', ['s2'], 1, {'zxid': [1, 1], 'index': 1}]

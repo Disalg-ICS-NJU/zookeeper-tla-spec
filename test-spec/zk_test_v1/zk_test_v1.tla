@@ -1218,7 +1218,7 @@ StartForwarding(i, j, lastSeenZxid, lastSeenIndex, mode, needRemoveHead) ==
                                         acceptedEpoch[i], history[i],
                                         lastSeenIndex + 1, lastProposedIndex)
                m_trunc == [ mtype |-> TRUNC, mtruncZxid |-> lastSeenZxid ]
-               m_diff  == [ mtype |-> DIFF,  mzxid |-> lastSeenZxid ]
+               m_diff  == [ mtype |-> DIFF,  mzxid |-> lastSeenZxid, mindex |-> lastSeenIndex ]
                newLeaderZxid == <<acceptedEpoch[i], 0>>
                m_newleader == [ mtype |-> NEWLEADER,
                                 mzxid |-> newLeaderZxid ]
@@ -2113,7 +2113,7 @@ Message ==
     [ mtype: {FOLLOWERINFO}, mzxid: Zxid ] \union
     [ mtype: {LEADERINFO}, mzxid: Zxid ] \union
     [ mtype: {ACKEPOCH}, mzxid: Zxid, mepoch: Nat \union {-1} ] \union
-    [ mtype: {DIFF}, mzxid: Zxid ] \union 
+    [ mtype: {DIFF}, mzxid: Zxid, mindex: Nat ] \union 
     [ mtype: {TRUNC}, mtruncZxid: Zxid ] \union 
     [ mtype: {PROPOSAL}, mzxid: Zxid, mdata: Value ] \union 
     [ mtype: {COMMIT}, mzxid: Zxid ] \union 

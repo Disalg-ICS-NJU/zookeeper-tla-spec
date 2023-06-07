@@ -1,4 +1,5 @@
 ------------------------- MODULE FastLeaderElection -------------------------
+
 \* This is the formal specification for Fast Leader Election in Zab protocol.
 (* Reference:
    FastLeaderElection.java, Vote.java, QuorumPeer.java in https://github.com/apache/zookeeper.
