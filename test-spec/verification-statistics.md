@@ -52,10 +52,10 @@ We use model-checking mode and simulation mode to explore every bugs mentioned. 
 - ZK-2845: 
     -   Model-checking mode
         -   00:00:12 ｜ 6,347  ｜ 10 ｜ aaInv.processConsistency = FALSE
-        -   00:00:18 ｜ 17,146 ｜ 11 ｜ daInv.proposalConsistenct = FALSE
+        -   00:00:18 ｜ 17,146 ｜ 11 ｜ daInv.proposalConsistent = FALSE
 
     -   Simulation mode
-        -   00:00:03 | 32,142 | 20 | daInv.proposalConsistenct = FALSE
+        -   00:00:03 | 32,142 | 20 | daInv.proposalConsistent = FALSE
         -   00:00:02 | 29,560 | 23 | aaInv.processConsistency = FALSE
 
 - ZK-3911:
