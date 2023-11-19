@@ -310,6 +310,8 @@ RecorderIncTimeout == RecorderIncHelper("nTimeout")
 RecorderGetTimeout == RecorderGetHelper("nTimeout")
 RecorderIncCrash   == RecorderIncHelper("nCrash")
 RecorderGetCrash   == RecorderGetHelper("nCrash")
+RecorderIncFleTimeout == RecorderIncHelper("nFleTimeout")
+RecorderGetFleTimeout == RecorderGetHelper("nFleTimeout")
 
 RecorderSetTransactionNum(pc) == ("nTransaction" :> 
                                 IF pc[1] = "LeaderProcessRequest" THEN
@@ -331,16 +333,19 @@ RecorderSetPartition(pc)      == ("nPartition" :>
                                 IF pc[1] = "PartitionStart" THEN recorder["nPartition"] + 1
                                                             ELSE recorder["nPartition"] )  
 RecorderSetPc(pc)      == ("pc" :> pc)
-RecorderSetFailure(pc) == CASE pc[1] = "Timeout"         -> RecorderIncTimeout @@ RecorderGetCrash
-                          []   pc[1] = "LeaderTimeout"   -> RecorderIncTimeout @@ RecorderGetCrash 
-                          []   pc[1] = "FollowerTimeout" -> RecorderIncTimeout @@ RecorderGetCrash 
+RecorderSetFailure(pc) == CASE pc[1] = "Timeout"         -> RecorderIncTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
+                          []   pc[1] = "LeaderTimeout"   -> RecorderIncTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
+                          []   pc[1] = "FollowerTimeout" -> RecorderIncTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
                           []   pc[1] = "PartitionStart"  -> IF IsLooking(pc[2]) 
-                                                            THEN RecorderGetTimeout @@ RecorderGetCrash
-                                                            ELSE RecorderIncTimeout @@ RecorderGetCrash
+                                                            THEN RecorderGetTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
+                                                            ELSE RecorderIncTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
                           []   pc[1] = "NodeCrash"       -> IF IsLooking(pc[2]) 
-                                                            THEN RecorderGetTimeout @@ RecorderIncCrash 
-                                                            ELSE RecorderIncTimeout @@ RecorderIncCrash 
-                          []   OTHER                     -> RecorderGetTimeout @@ RecorderGetCrash
+                                                            THEN RecorderGetTimeout @@ RecorderIncCrash @@ RecorderGetFleTimeout
+                                                            ELSE RecorderIncTimeout @@ RecorderIncCrash @@ RecorderGetFleTimeout
+                          []   pc[1] = "FLENotmsgTimeout" -> IF IsLooking(pc[2]) 
+                                                             THEN RecorderGetTimeout @@ RecorderGetCrash @@ RecorderIncFleTimeout
+                                                             ELSE RecorderGetTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
+                          []   OTHER                     -> RecorderGetTimeout @@ RecorderGetCrash @@ RecorderGetFleTimeout
 
 UpdateRecorder(pc) == recorder' = RecorderSetPartition(pc)
                                   @@  RecorderSetFailure(pc)  @@ RecorderSetTransactionNum(pc)
@@ -353,6 +358,7 @@ CheckParameterHelper(n, p, Comp(_,_)) == IF p \in DOMAIN Parameters
                                          ELSE TRUE
 CheckParameterLimit(n, p) == CheckParameterHelper(n, p, LAMBDA i, j: i < j)
 
+CheckFleTimeout     == CheckParameterLimit(recorder.nFleTimeout,   "MaxFleTimeout")
 CheckTimeout        == CheckParameterLimit(recorder.nTimeout,      "MaxTimeoutFailures")
 CheckTransactionNum == CheckParameterLimit(recorder.nTransaction,  "MaxTransactionNum")
 CheckEpoch          == CheckParameterLimit(recorder.maxEpoch,      "MaxEpoch")
@@ -362,6 +368,7 @@ CheckCrash(i)       == /\ \/ IsLooking(i)
                           \/ /\ ~IsLooking(i)
                              /\ CheckTimeout
                        /\ CheckParameterLimit(recorder.nCrash,     "MaxCrashes")
+
 
 CheckStateConstraints == CheckTimeout /\ CheckTransactionNum /\ CheckEpoch
 -----------------------------------------------------------------------------
@@ -484,7 +491,8 @@ InitRecorder == recorder = [nTimeout       |-> 0,
                             maxEpoch       |-> 0,
                             nCrash         |-> 0,
                             pc             |-> <<"Init">>,
-                            nClientRequest |-> 0]
+                            nClientRequest |-> 0,
+                            nFleTimeout    |-> 0]
 
 Init == /\ InitServerVars
         /\ InitLeaderVars
@@ -525,6 +533,7 @@ FLEReceiveNotmsg(i, j) ==
         /\ UpdateRecorder(<<"FLEReceiveNotmsg", i, j>>)
 
 FLENotmsgTimeout(i) ==
+        /\ CheckFleTimeout
         /\ IsON(i)
         /\ NotmsgTimeout(i)
         /\ UNCHANGED <<zabState, acceptedEpoch, lastCommitted, learners, connecting, 
@@ -1646,7 +1655,7 @@ LeaderProcessRequest(i) ==
         /\ IsON(i)
         /\ IsLeader(i)
         /\ zabState[i] = BROADCAST
-        /\ LET inBroadcast == {s \in forwarding[i]: zabState[s] = BROADCAST}
+        /\ LET inBroadcast == {s \in forwarding[i]: zabState[s] = BROADCAST} \union {i}
            IN IsQuorum(inBroadcast)
         /\ LET request_value == GetRecorder("nClientRequest") \* unique value
                newTxn == [ zxid   |-> IncZxid(i, LastProposed(i).zxid),
@@ -2025,6 +2034,7 @@ PrimaryIntegrity == \A i, j \in Server: /\ IsLeader(i)   /\ IsMyLearner(i, j)
                                         TxnEqual(history[i][idx_i], history[j][idx_j])
 =============================================================================
 \* Modification History
+\* Last modified Sun Nov 19 17:23:45 CST 2023 by fedora
 \* Last modified Tue Jan 17 21:21:28 CST 2023 by huangbinyu
 \* Last modified Mon Nov 22 22:25:23 CST 2021 by Dell
 \* Created Sat Oct 23 16:05:04 CST 2021 by Dell
