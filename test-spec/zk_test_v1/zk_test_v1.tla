@@ -1830,7 +1830,7 @@ LeaderProcessRequest(i) ==
         /\ IsON(i)
         /\ IsLeader(i)
         /\ zabState[i] = BROADCAST
-        /\ LET inBroadcast == {s \in forwarding[i]: zabState[s] = BROADCAST}
+        /\ LET inBroadcast == {s \in forwarding[i]: zabState[s] = BROADCAST} \union {i}
            IN IsQuorum(inBroadcast)
         /\ LET request_value == GetRecorder("nClientRequest") \* unique value
                newTxn == [ zxid   |-> IncZxid(i, LastProposed(i).zxid),
