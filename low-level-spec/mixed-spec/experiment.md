@@ -27,7 +27,7 @@ Invariant violation results of the bugs can be found in *[verification-statistic
 
 ###### Probabilities of Invariant Violations
 
-With the following state space constraints for the spec  [zk_test_v1.tla](zk_test_v1/zk_test_v1.tla) :
+With the following state space constraints for the spec  [mixed_v1.tla](mixed_v1/mixed_v1.tla) :
 
 - 3 servers
 - TimeoutThresh: 6

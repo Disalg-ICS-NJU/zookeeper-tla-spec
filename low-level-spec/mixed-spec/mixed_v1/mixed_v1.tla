@@ -1,5 +1,5 @@
------------------------------ MODULE zk_test_v1 -----------------------------
-(* This is the test specification for ZooKeeper in apache/zookeeper with version 3.4.10. *)
+----------------------------- MODULE mixed_v1 -----------------------------
+(* This is the mixed-grained specification for ZooKeeper in apache/zookeeper with version 3.4.10. *)
 (* Reproduced bugs include zk-3911, zk-2845, etc. *)
 
 EXTENDS Integers, FiniteSets, Sequences, Naturals, TLC

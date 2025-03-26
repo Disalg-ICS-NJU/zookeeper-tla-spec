@@ -29,7 +29,7 @@ In addition to this, we also use techniques of efficient exploration strategies 
 ## Verification statistics of model checking 
 We use two mode for verifying Zab Protocol: model-checking mode and simulation mode. We terminate model checking when cost time exceeds 24 hours.
 
-For invariant properties checked in model checking, besides invariants defined in protocol-spec, we define four invariants in test spec: 
+For invariant properties checked in model checking, besides invariants defined in protocol-spec, we define four invariants in the mixed-grained spec: 
 
     -   ProcessConsistency: Client will not read a stale value
     -   MonotonicRead: When Follower completes log recovery, the Follower log is the prefix substring of the Leader log
@@ -44,7 +44,7 @@ In model checking below, we set **N** as 3, **L** as 2, **C** as 4, **P** as 4.
 We use model-checking mode and simulation mode to explore every bugs mentioned. And each line of results contains:
 **time spent in current mck** | **number of states** | **state depth that triggers violation** | **invariant violation**
 
-### zk_test_v1
+### mixed_v1
 > Config: 3 servers, 2 txn num, 4 crashes, 4 partitions
 - ZK-2845: 
     -   Model-checking mode
