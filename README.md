@@ -1,6 +1,6 @@
 # ZooKeeper's TLA+ Specification
 
-This project is about the development and evaluations of TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](protocol-spec/issues.md) of Zab's informal description and some [deep bugs](test-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
+This project is about the development and evaluations of TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](high-level-spec/issues.md) of Zab's informal description and some [deep bugs](low-level-spec/mixed-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
 
 More details can be found on the [arXiv](https://arxiv.org/pdf/2302.02703.pdf). The formal specifications have been merged to the [Apache ZooKeeper project](https://github.com/apache/zookeeper). 
 
@@ -16,7 +16,7 @@ As for the ZooKeeper project, we first develop the high-level *protocol specific
 
 Considering that the ZooKeeper implementation optimizes a lot based on the Zab protocol, we then develop the implementation-level specification,  named *system specification*, based on Zab's protocol specification and ZooKeeper's source code at a low cost. The system specification can serve as the super-doc of ZooKeeper (Zab-1.0) implementation.
 
-To cope with the model-code gaps and alleviate state space explosion, we further develop ***multi-grained specifications*** based on the system specification and the source code, and compose the specifications with different granularities into ***mixed-grained specifications***. The mixed-grained specifications help find several deep bugs (see *[deep-bugs.md](test-spec/deep-bugs.md)*) in ZooKeeper implementaion (including the latest version ZK-3.9.1 at the time of writing). 
+To cope with the model-code gaps and alleviate state space explosion, we further develop ***multi-grained specifications*** based on the system specification and the source code, and compose the specifications with different granularities into ***mixed-grained specifications***. The mixed-grained specifications help find several deep bugs (see *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)*) in ZooKeeper implementaion (including the latest version ZK-3.9.1 at the time of writing). 
 
 Besides, to ensure the quality of these specifications, we also conduct model checking on them using the TLC model checkers, as well as conformance checking using our REMIX framework. 
 
@@ -46,15 +46,14 @@ This project is organized as follows.
   * *[conformance-checking.md](low-level-spec/zk-3.7/conformance-checking.md)* : experience of conformance checking. 
   * *[verification-statistics.md](low-level-spec/zk-3.7/verification-statistics.md)* : statistics of verification.
 * *[mixed-spec](low-level-spec/mixed-spec)*
-* *[mixed_v1](low-level-spec/mixed-spec/mixed_v1)*
-    * *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)* : TLA+ specification v1 for model checking the implementation of ZooKeeper-3.4.10.
-    * *[Zab-simulate.ini](low-level-spec/mixed-spec/mixed_v1/Zab-simulate.ini)* : TLC configuration file for *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)*.
-    * *[trace ](low-level-spec/mixed-spec/mixed_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
-  
-* *[doc.md](low-level-spec/mixed-spec/doc.md)* : introduction of ZK's mixed-grained specification. 
-  
-* *[experiment.md](low-level-spec/mixed-spec/experiment.md)* : experiment design and results.
-  
-* *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)* : list of triggered deep bugs.
-  
-* *[verification-statistics.md](low-level-spec/mixed-spec/verification-statistics.md)* : statistics of verification.
+    * *[mixed_v1](low-level-spec/mixed-spec/mixed_v1)*
+        * *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)* : TLA+ specification v1 for model checking the implementation of ZooKeeper-3.4.10.
+        * *[Zab-simulate.ini](low-level-spec/mixed-spec/mixed_v1/Zab-simulate.ini)* : TLC configuration file for *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)*.
+        * *[trace ](low-level-spec/mixed-spec/mixed_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
+    * *[doc.md](low-level-spec/mixed-spec/doc.md)* : introduction of ZK's mixed-grained specification. 
+
+    * *[experiment.md](low-level-spec/mixed-spec/experiment.md)* : experiment design and results.
+
+    * *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)* : list of triggered deep bugs.
+
+    * *[verification-statistics.md](low-level-spec/mixed-spec/verification-statistics.md)* : statistics of verification.
