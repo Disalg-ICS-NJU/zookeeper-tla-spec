@@ -2,7 +2,7 @@
 
 This project is about the development and evaluations of TLA+ specifications of ZooKeeper and its core consensus protocol called *Zab (Zookeeper Atomic Broadcast)*. The specifications help us discover several [ambiguities](high-level-spec/issues.md) of Zab's informal description and some [deep bugs](low-level-spec/mixed-spec/deep-bugs.md) in multiple versions of ZooKeeper (including the latest version 3.8.0 at the time of writing). 
 
-More details can be found on the [arXiv](https://arxiv.org/pdf/2302.02703.pdf). The formal specifications have been merged to the [Apache ZooKeeper project](https://github.com/apache/zookeeper). 
+More details can be found on the [arXiv](https://arxiv.org/abs/2409.14301). The formal specifications have been merged to the [Apache ZooKeeper project](https://github.com/apache/zookeeper). 
 
 
 
