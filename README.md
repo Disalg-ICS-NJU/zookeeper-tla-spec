@@ -20,7 +20,7 @@ Considering that the ZooKeeper implementation optimizes a lot based on the Zab p
 
 To cope with the model-code gaps and alleviate state space explosion, we further develop ***multi-grained specifications*** based on the system specification and the source code, and compose the specifications with different granularities into ***mixed-grained specifications***. The mixed-grained specifications help find several deep bugs (see *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)*) in ZooKeeper implementaion (including version 3.4.10, and 3.9.1, the latest version at the time of writing). 
 
-Besides, to ensure the quality of these specifications, we also conduct model checking on them using the TLC model checkers, as well as conformance checking using our [REMIX](https://github.com/Lingzhi-Ouyang/Remix) framework. 
+Besides, to ensure the quality of these specifications, we also conduct model checking on them using the TLC model checkers, as well as conformance checking using our [Remix](https://github.com/Lingzhi-Ouyang/Remix) framework. 
 
 We submit a [pull request](https://github.com/apache/zookeeper/pull/1690) of providing formal specifications and verifications for Zab-pre1.0 and Zab-1.0 ( corresponding to protocol specification and system specification, respectively), and received positive feedbacks from community developers. The formal specifications have been merged to the [Apache ZooKeeper project](https://github.com/apache/zookeeper/tree/master/zookeeper-specifications). 
 
