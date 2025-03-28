@@ -10,7 +10,9 @@ More details can be found on the [arXiv](https://arxiv.org/abs/2409.14301). The 
 
 The ZooKeeper community show great interest in developing TLA+ specification for ZooKeeper and Zab. On Apache's issue tracking system, the request of [write a TLA+ specification to verify Zab protocol](https://issues.apache.org/jira/browse/ZOOKEEPER-3615) has been raised early in 2019. 
 
-Following the idea of TLA+'s ladder of abstractions and incremental specification, we develop two levels of specifiactions, namely *high-level sepecification* and *low-level specification*. The ***high-level specification***, or ***protocol-level specification***, describes the high-level logic of the protocol design. The ***low-level specification***, or ***implementation-level specification***, describes the target logic of the code implementation.
+Following the idea of TLA+'s ladder of abstractions and incremental specification, we develop two levels of specifiactions, namely *high-level sepecification* and *low-level specification*. 
+* The ***high-level specification***, or ***protocol-level specification***, describes the high-level logic of the protocol design. It is the precise design of the system, and the implementation is expected to conform to this high-level design.
+* The ***low-level specification***, or ***implementation-level specification***, describes the target logic of the code implementation. The ultimate goal of the low-level specification is to faithfully reflect the code implementation. Especially when the code implementation is buggy, the low-level specification should precisely reflect the buggy implementation. Thus, the bugs can be unearthed by the verification of the low-level specification. 
 
 As for the ZooKeeper project, we first develop the high-level *protocol specification* that describes the Zab protocol without ambiguity. We discover several [ambiguities](high-level-spec/issues.md) of Zab's informal description and fix the bugs in the protocol specification.
 
