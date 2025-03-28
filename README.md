@@ -18,7 +18,7 @@ As for the ZooKeeper project, we first develop the high-level *protocol specific
 
 Considering that the ZooKeeper implementation optimizes a lot based on the Zab protocol, we then develop the implementation-level specification,  named *system specification*, based on Zab's protocol specification and ZooKeeper's source code at a low cost. The system specification can serve as the super-doc of ZooKeeper (Zab-1.0) implementation.
 
-To cope with the model-code gaps and alleviate state space explosion, we further develop ***multi-grained specifications*** based on the system specification and the source code, and compose the specifications with different granularities into ***mixed-grained specifications***. The mixed-grained specifications help find several deep bugs (see *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)*) in ZooKeeper implementaion (including the latest version ZK-3.9.1 at the time of writing). 
+To cope with the model-code gaps and alleviate state space explosion, we further develop ***multi-grained specifications*** based on the system specification and the source code, and compose the specifications with different granularities into ***mixed-grained specifications***. The mixed-grained specifications help find several deep bugs (see *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)*) in ZooKeeper implementaion (including version 3.4.10, and 3.9.1, the latest version at the time of writing). 
 
 Besides, to ensure the quality of these specifications, we also conduct model checking on them using the TLC model checkers, as well as conformance checking using our [REMIX](https://github.com/Lingzhi-Ouyang/Remix) framework. 
 
