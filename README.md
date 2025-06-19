@@ -32,11 +32,11 @@ This project is organized as follows.
 
 #### *[high-level-spec](high-level-spec)*
 
-* *[Zab.tla](protocol-spec/Zab.tla)* : TLA+ specification of Zab.
-* *[doc.md](protocol-spec/doc.md)* : introduction of Zab's protocol specification, as well as practices of specification and verification. 
-* *[verification-statistics.md](protocol-spec/verification-statistics.md)* : statistics of verification.
-* [*issues.md*](protocol-spec/issues.md) : issues found from  the protocol specification and the Zab informal description. 
-* *[pic](protocol-spec/pic)* : pictures of buggy trace examples.
+* *[Zab.tla](high-level-spec/Zab.tla)* : TLA+ specification of Zab.
+* *[doc.md](high-level-spec/doc.md)* : introduction of Zab's protocol specification, as well as practices of specification and verification. 
+* *[verification-statistics.md](high-level-spec/verification-statistics.md)* : statistics of verification.
+* [*issues.md*](high-level-spec/issues.md) : issues found from  the protocol specification and the Zab informal description. 
+* *[pic](high-level-spec/pic)* : pictures of buggy trace examples.
 
 #### *[low-level-spec](low-level-spec)*
 
@@ -52,10 +52,13 @@ This project is organized as follows.
         * *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)* : TLA+ specification v1 for model checking the implementation of ZooKeeper-3.4.10.
         * *[Zab-simulate.ini](low-level-spec/mixed-spec/mixed_v1/Zab-simulate.ini)* : TLC configuration file for *[mixed_v1.tla](low-level-spec/mixed-spec/mixed_v1/mixed_v1.tla)*.
         * *[trace ](low-level-spec/mixed-spec/mixed_v1/trace)*: reproduced traces of bugs like [ZK-3911](https://issues.apache.org/jira/browse/ZOOKEEPER-3911), [ZK-2845](https://issues.apache.org/jira/browse/ZOOKEEPER-2845), ...
+    * *[mixed_v2](low-level-spec/mixed-spec/mixed_v2)*
+        * [MSPEC_2.tla](low-level-spec/mixed-spec/mixed_v2/MSPEC_2.tla):  TLA+ specification for exploring the interleaving of the non-atomic logic in synchronization in ZooKeeper 3.9.1.
+        * *[Zab-simulate.ini](low-level-spec/mixed-spec/mixed_v2/Zab-simulate.ini)* : TLC configuration file for [MSPEC_2.tla](low-level-spec/mixed-spec/mixed_v2/MSPEC_2.tla).
+    * *[mixed_v3](low-level-spec/mixed-spec/mixed_v3)*
+        * [MSPEC_3.tla](low-level-spec/mixed-spec/mixed_v3/MSPEC_3.tla):  TLA+ specification for exploring the potential consequences of the non-atomic logic and multi-thread asynchronous processing logic of receiving messages, logging transactions and committing transactions in ZooKeeper 3.9.1.
+        * *[Zab-simulate.ini](low-level-spec/mixed-spec/mixed_v3/Zab-simulate.ini)* : TLC configuration file for [MSPEC_3.tla](low-level-spec/mixed-spec/mixed_v3/MSPEC_3.tla).
     * *[doc.md](low-level-spec/mixed-spec/doc.md)* : introduction of ZK's mixed-grained specification. 
-
     * *[experiment.md](low-level-spec/mixed-spec/experiment.md)* : experiment design and results.
-
     * *[deep-bugs.md](low-level-spec/mixed-spec/deep-bugs.md)* : list of triggered deep bugs.
-
     * *[verification-statistics.md](low-level-spec/mixed-spec/verification-statistics.md)* : statistics of verification.
