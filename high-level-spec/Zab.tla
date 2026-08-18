@@ -17,6 +17,20 @@ CONSTANT Parameters
 MAXEPOCH == 10
 NullPoint == CHOOSE p: p \notin Server
 Quorums == {Q \in SUBSET Server: Cardinality(Q)*2 > Cardinality(Server)}
+
+\* The model starts after the client session and target key have been created.
+\* Represent that out-of-scope setup as one common committed log entry.
+BootstrapZxid == <<0, 1>>
+BootstrapTxn == [ zxid   |-> BootstrapZxid,
+                  value  |-> 0,
+                  ackSid |-> Server,
+                  epoch  |-> 0 ]
+BootstrapHistory == <<BootstrapTxn>>
+BootstrapProposalMsgs ==
+    { [ source |-> s,
+        epoch  |-> 0,
+        zxid   |-> BootstrapZxid,
+        data   |-> 0 ] : s \in Server }
 -----------------------------------------------------------------------------
 \* Variables that all servers use.
 VARIABLES state,          \* State of server, in {LOOKING, FOLLOWING, LEADING}.
@@ -29,7 +43,8 @@ VARIABLES state,          \* State of server, in {LOOKING, FOLLOWING, LEADING}.
           history,        \* History of servers: sequence of transactions,
                           \* containing: [zxid, value, ackSid, epoch].
           lastCommitted   \* Maximum index and zxid known to be committed,
-                          \* namely 'lastCommitted' in Leader. Starts from 0,
+                          \* namely 'lastCommitted' in Leader. Starts after the
+                          \* common bootstrap entry,
                           \* and increases monotonically before restarting.
 
 \* Variables only used for leader.
@@ -135,7 +150,7 @@ RecorderSetTransactionNum(pc) == ("nTransaction" :>
                                 IF pc[1] = "LeaderProcessRequest" THEN
                                     LET s == CHOOSE i \in Server: 
                                         \A j \in Server: Len(history'[i]) >= Len(history'[j])                       
-                                    IN Len(history'[s])
+                                    IN Len(history'[s]) - Len(BootstrapHistory)
                                 ELSE recorder["nTransaction"])
 RecorderSetMaxEpoch(pc)       == ("maxEpoch" :> 
                                 IF pc[1] = "LeaderProcessCEPOCH" THEN
@@ -267,9 +282,9 @@ InitServerVars == /\ state         = [s \in Server |-> LOOKING]
                   /\ zabState      = [s \in Server |-> ELECTION]
                   /\ acceptedEpoch = [s \in Server |-> 0]
                   /\ currentEpoch  = [s \in Server |-> 0]
-                  /\ history       = [s \in Server |-> << >>]
-                  /\ lastCommitted = [s \in Server |-> [ index |-> 0,
-                                                         zxid  |-> <<0, 0>> ] ]
+                  /\ history       = [s \in Server |-> BootstrapHistory]
+                  /\ lastCommitted = [s \in Server |-> [ index |-> 1,
+                                                         zxid  |-> BootstrapZxid ] ]
 
 InitLeaderVars == /\ learners       = [s \in Server |-> {}]
                   /\ cepochRecv     = [s \in Server |-> {}]
@@ -283,7 +298,7 @@ InitElectionVars == leaderOracle = NullPoint
 
 InitMsgVars == msgs = [s \in Server |-> [v \in Server |-> << >>] ]
 
-InitVerifyVars == /\ proposalMsgsLog    = {}
+InitVerifyVars == /\ proposalMsgsLog    = BootstrapProposalMsgs
                   /\ epochLeader        = [i \in 1..MAXEPOCH |-> {} ]
                   /\ violatedInvariants = [stateInconsistent    |-> FALSE,
                                            proposalInconsistent |-> FALSE,
@@ -296,7 +311,7 @@ InitRecorder == recorder = [nTimeout       |-> 0,
                             maxEpoch       |-> 0,
                             nRestart       |-> 0,
                             pc             |-> <<"Init">>,
-                            nClientRequest |-> 0]
+                            nClientRequest |-> 1]
 
 Init == /\ InitServerVars
         /\ InitLeaderVars
