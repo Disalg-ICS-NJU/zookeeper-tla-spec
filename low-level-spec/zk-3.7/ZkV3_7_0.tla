@@ -42,7 +42,8 @@ VARIABLES zabState,      \* Current phase of server, in
           acceptedEpoch, \* Epoch of the last LEADERINFO packet accepted,
                          \* namely f.p in paper.
           lastCommitted, \* Maximum index and zxid known to be committed,
-                         \* namely 'lastCommitted' in Leader. Starts from 0,
+                         \* namely 'lastCommitted' in Leader. Starts after the
+                         \* common bootstrap entry,
                          \* and increases monotonically before restarting.
           lastSnapshot,  \* Index and zxid corresponding to latest snapshot
                          \* from data tree.
@@ -166,6 +167,12 @@ Proposal ==
       epoch: Nat,
       zxid: Zxid,
       data: Value ]   
+
+BootstrapProposalMsgs ==
+    { [ source |-> s,
+        epoch  |-> 0,
+        zxid   |-> BootstrapZxid,
+        data   |-> 0 ] : s \in Server }
 
 LastItem ==
     [ index: Nat, zxid: Zxid ]
@@ -317,7 +324,7 @@ RecorderSetTransactionNum(pc) == ("nTransaction" :>
                                 IF pc[1] = "LeaderProcessRequest" THEN
                                     LET s == CHOOSE i \in Server: 
                                         \A j \in Server: Len(history'[i]) >= Len(history'[j])                       
-                                    IN Len(history'[s])
+                                    IN Len(history'[s]) - Len(BootstrapHistory)
                                 ELSE recorder["nTransaction"])
 RecorderSetMaxEpoch(pc)       == ("maxEpoch" :> 
                                 IF pc[1] = "LeaderProcessFOLLOWERINFO" THEN
@@ -448,11 +455,11 @@ CleanInputBufferInCluster(S) == msgs' = [s \in Server |->
 InitServerVars == /\ InitServerVarsL
                   /\ zabState      = [s \in Server |-> ELECTION]
                   /\ acceptedEpoch = [s \in Server |-> 0]
-                  /\ lastCommitted = [s \in Server |-> [ index |-> 0,
-                                                         zxid  |-> <<0, 0>> ] ]
+                  /\ lastCommitted = [s \in Server |-> [ index |-> 1,
+                                                         zxid  |-> BootstrapZxid ] ]
                   /\ lastSnapshot  = [s \in Server |-> [ index |-> 0,
                                                          zxid  |-> <<0, 0>> ] ]
-                  /\ initialHistory = [s \in Server |-> << >>]
+                  /\ initialHistory = [s \in Server |-> BootstrapHistory]
 
 InitLeaderVars == /\ InitLeaderVarsL
                   /\ learners         = [s \in Server |-> {}]
@@ -471,7 +478,7 @@ InitFollowerVars == /\ connectInfo = [s \in Server |-> [sid |-> NullPoint,
                                         [ notCommitted |-> << >>,
                                           committed    |-> << >> ] ]
 
-InitVerifyVars == /\ proposalMsgsLog    = {}
+InitVerifyVars == /\ proposalMsgsLog    = BootstrapProposalMsgs
                   /\ epochLeader        = [e \in 1..MAXEPOCH |-> {} ]
                   /\ violatedInvariants = [stateInconsistent    |-> FALSE,
                                            proposalInconsistent |-> FALSE,
@@ -491,7 +498,7 @@ InitRecorder == recorder = [nTimeout       |-> 0,
                             maxEpoch       |-> 0,
                             nCrash         |-> 0,
                             pc             |-> <<"Init">>,
-                            nClientRequest |-> 0,
+                            nClientRequest |-> 1,
                             nFleTimeout    |-> 0]
 
 Init == /\ InitServerVars
